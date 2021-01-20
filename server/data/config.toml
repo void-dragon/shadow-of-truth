@@ -1,0 +1,2 @@
+port = 3000
+private_key = "data/server.key"

@@ -1,0 +1,17 @@
+[package]
+name = "shadow-of-truth-server"
+version = "0.1.0"
+authors = ["voidragon <arne_simon@gmx.de>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+env_logger = "*"
+log = "*"
+# openssl = {version = "*"}
+serde = {version = "*", features = ["derive"]}
+serde_cbor = "*"
+serde_bytes = "*"
+tokio = { version = "*", features = ["full"]}
+toml = "*"

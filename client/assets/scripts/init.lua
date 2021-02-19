@@ -1,4 +1,3 @@
-print("hello from moon")
 local main = methatron.scene.new()
 local drw = methatron.drawable.quick_load("assets/shaders/phong.vertex.glsl", "assets/shaders/phong.fragment.glsl", "assets/models/cube.json")
 

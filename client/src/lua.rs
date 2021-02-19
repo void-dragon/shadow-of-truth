@@ -19,7 +19,7 @@ pub fn execute(ctx: context::Context, filename: &str) -> mlua::prelude::LuaResul
   globals.set("tracer", tracer::new())?;
 
   let print = lua.create_function(|_, params: mlua::Variadic<String>| {
-    info!("{}", params.iter().fold(" ".to_owned(), |a, b| a + b));
+    info!("{}", params.iter().fold("".to_owned(), |a, b| a + b));
     Ok(())
   })?;
   globals.set("print", print)?;

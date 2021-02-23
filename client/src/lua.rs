@@ -15,7 +15,7 @@ pub fn execute(ctx: context::Context, filename: &str) -> mlua::prelude::LuaResul
 
   let globals = lua.globals();
   globals.set("methatron", meth)?;
-  globals.set("context", context::ContextUserData { context: ctx })?;
+  globals.set("context", context::ContextUserData { context: ctx.clone() })?;
   globals.set("tracer", tracer::new())?;
 
   let print = lua.create_function(|_, params: mlua::Variadic<String>| {
@@ -24,12 +24,27 @@ pub fn execute(ctx: context::Context, filename: &str) -> mlua::prelude::LuaResul
   })?;
   globals.set("print", print)?;
 
+  {
+    let ctx = ctx.clone();
+    let exe = lua.create_function(move |_, filename: String| {
+      execute(ctx.clone(), &filename)?;
+      Ok(())
+    })?;
+    globals.set("execute", exe)?;
+  }
+
   lua.load(&std::fs::read(filename)?).exec()?;
-  let on_update: mlua::Function = globals.get("on_update")?;
+ 
+  if globals.contains_key("on_update")?{
+    let on_update: mlua::Function = globals.get("on_update")?;
 
-  loop {
-    on_update.call::<_, ()>(()).unwrap();
+    loop {
+      on_update.call::<_, ()>(()).unwrap();
 
-    std::thread::sleep(std::time::Duration::from_millis(25));
+      std::thread::sleep(std::time::Duration::from_millis(25));
+    }
+  }
+  else {
+    Ok(())
   }
 }

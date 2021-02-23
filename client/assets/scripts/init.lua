@@ -1,5 +1,9 @@
 local main = methatron.scene.new()
-local drw = methatron.drawable.quick_load("assets/shaders/phong.vertex.glsl", "assets/shaders/phong.fragment.glsl", "assets/models/cube.json")
+local drw = methatron.drawable.quick_load(
+  "assets/shaders/phong.vertex.glsl",
+  "assets/shaders/phong.fragment.glsl",
+  "assets/models/ikosaeder.json"
+)
 
 print("set drawable to node")
 local n0 = methatron.node.new()
@@ -22,7 +26,9 @@ context:set_scene(main)
 
 print("transform")
 local rot_x = methatron.math.matrix.rotate_x
+local rot_y = methatron.math.matrix.rotate_y
 local n0_mat = n0:get_transform()
+local old_pos = context:mouse_position()
 
 print("prepare update")
 on_update = function()
@@ -31,4 +37,8 @@ on_update = function()
   elseif context:is_key_down("D") then
     return rot_x(n0_mat, -0.1)
   end
+
+  local pos = context:mouse_position()
+  rot_y(n0_mat, (old_pos[1] - pos[1]) / 100)
+  old_pos = pos
 end

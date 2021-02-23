@@ -1,6 +1,8 @@
+use std::hash::{Hash, Hasher};
+
 use tokio::sync::mpsc::Sender;
 
-use crate::message::Command;
+use shadow_of_truth_common::Message;
 
 pub struct AesKey {
   pub key: [u8; 32],
@@ -21,13 +23,29 @@ impl AesKey {
   }
 }
 
-enum ClientState {
+pub enum ClientState {
   Greeting,
   SecretSharing,
   Listening,
+  Disconnected,
 }
 
 pub struct Client {
-  state: ClientState,
-  tx: Sender<Command>,
+  pub id: String,
+  pub state: ClientState,
+  pub tx: Sender<Message>,
+}
+
+impl PartialEq for Client {
+  fn eq(&self, other: &Self) -> bool {
+    self.id == other.id
+  }
+}
+
+impl Eq for Client {}
+
+impl Hash for Client {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.id.hash(state);
+  }
 }

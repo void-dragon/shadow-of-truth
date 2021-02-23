@@ -8,6 +8,7 @@ use crate::methatron::scene::{Scene, SceneUserData};
 pub struct ImplContext {
   pub scene: Option<Scene>,
   pub keys_down: BTreeSet<String>,
+  pub mouse_position: [f64; 2],
 }
 
 pub type Context = Arc<RwLock<ImplContext>>;
@@ -16,6 +17,7 @@ pub fn new() -> Context {
   let ctx = Arc::new(RwLock::new(ImplContext {
     scene: None,
     keys_down: BTreeSet::new(),
+    mouse_position: [0.0, 0.0],
   }));
 
   ctx
@@ -44,6 +46,11 @@ impl mlua::UserData for ContextUserData {
       methods.add_method("is_key_down", |_, this, key: String| {
         let ctx = this.context.read().unwrap();
         Ok(ctx.keys_down.contains(&key))
+      });
+
+      methods.add_method("mouse_position", |_, this, (): ()| {
+        let ctx = this.context.read().unwrap();
+        Ok(ctx.mouse_position)
       });
    }
 }

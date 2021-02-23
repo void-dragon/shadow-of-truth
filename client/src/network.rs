@@ -1,15 +1,8 @@
 use std::net::TcpStream;
-use std::io::{Read, Write};
-use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use serde::{Serialize, Deserialize};
-
-#[derive(Serialize, Deserialize)]
-pub enum Message {
-  Login
-}
+use shadow_of_truth_common as common;
 
 #[derive(Clone)]
 pub struct Network {
@@ -42,33 +35,30 @@ impl Network {
     let mut reader = TcpStream::connect("127.0.0.1:3000")?;
     self.writer = Some(Arc::new(Mutex::new(reader.try_clone()?)));
 
-    self.send(Message::Login);
+    self.send(common::Message::Login);
 
     std::thread::spawn(move || {
       loop {
-        let mut size_buffer = [0u8; 4];
-        reader.read_exact(&mut size_buffer).unwrap();
-
-        let size = u32::from_le_bytes(size_buffer);
-        let mut data = vec![0u8; size as usize];
-        reader.read_exact(&mut data).unwrap();
-
-        let msg: Message = serde_cbor::from_slice(&data).unwrap();
+        match common::read(&mut reader) {
+          Ok(msg) => {}
+          Err(e) => {
+            log::error!("read {}", e.to_string());
+            break;
+          }
+        }
       }
     });
 
     Ok(())
   }
 
-  pub fn send(&self, msg: Message) {
-    if let Some(ref writer) = self.writer {
-      let mut writer = writer.lock().unwrap();
-      let msg = serde_cbor::to_vec(&msg).unwrap();
-      let size_buffer = (msg.len() as u32).to_le_bytes();
-
-      writer.write(&size_buffer).unwrap();
-      writer.write(&msg).unwrap();
-    }
+  pub fn send(&self, msg: common::Message) {
+    // if let Some(ref writer) = self.writer {
+    //   let mut writer = writer.lock().unwrap();
+    //   if let Err(e) = common::write(&mut *writer, msg) {
+    //     log::error!("write {}", e.to_string());
+    //   }
+    // }
   }
 }
 

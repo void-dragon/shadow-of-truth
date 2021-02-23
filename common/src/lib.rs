@@ -1,3 +1,5 @@
+use std::io::{Read, Write};
+
 use serde::{Serialize, Deserialize};
 use tokio::{
     io::{
@@ -11,6 +13,8 @@ use tokio::{
         },
     },
 };
+
+pub mod keys;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Message {
@@ -36,7 +40,28 @@ pub enum Command {
   },
 }
 
-pub async fn read(read: &mut OwnedReadHalf) -> Result<Message, Box<dyn std::error::Error>> {
+pub fn read<T: Read>(read: &mut T) -> Result<Message, Box<dyn std::error::Error>> {
+    let mut size_buffer = [0u8; 4];
+    read.read_exact(&mut size_buffer)?;
+
+    let size = u32::from_le_bytes(size_buffer);
+    let mut data = vec![0u8; size as usize];
+    read.read_exact(&mut data)?;
+
+    Ok(serde_cbor::from_slice(&data)?)
+}
+
+pub fn write<T: Write>(write: &mut T, msg: Message) -> Result<(), Box<dyn std::error::Error>> {
+    let data = serde_cbor::to_vec(&msg).unwrap();
+    let size_buffer = (data.len() as u32).to_le_bytes();
+
+    write.write(&size_buffer)?;
+    write.write(&data)?;
+
+    Ok(())
+}
+
+pub async fn async_read(read: &mut OwnedReadHalf) -> Result<Message, Box<dyn std::error::Error>> {
     let mut size_buffer = [0u8; 4];
     read.read_exact(&mut size_buffer).await?;
 
@@ -47,7 +72,7 @@ pub async fn read(read: &mut OwnedReadHalf) -> Result<Message, Box<dyn std::erro
     Ok(serde_cbor::from_slice(&data)?)
 }
 
-pub async fn write(write: &mut OwnedWriteHalf, msg: Message) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn async_write(write: &mut OwnedWriteHalf, msg: Message) -> Result<(), Box<dyn std::error::Error>> {
     let data = serde_cbor::to_vec(&msg).unwrap();
     let size_buffer = (data.len() as u32).to_le_bytes();
 
@@ -56,4 +81,3 @@ pub async fn write(write: &mut OwnedWriteHalf, msg: Message) -> Result<(), Box<d
 
     Ok(())
 }
-

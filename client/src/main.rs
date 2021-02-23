@@ -1,5 +1,3 @@
-use env_logger::Env;
-
 mod methatron;
 mod context;
 mod lua;
@@ -7,7 +5,8 @@ mod tracer;
 mod network;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-  env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
+  let env = env_logger::Env::default().default_filter_or("debug");
+  env_logger::Builder::from_env(env).init();
 
   let event_loop = glutin::event_loop::EventLoop::new();
   let window = glutin::window::WindowBuilder::new()
@@ -82,6 +81,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
               }
             }
+          }
+          DeviceEvent::MouseMotion{delta} => {
+            let mut c = ctx.write().unwrap();
+            c.mouse_position[0] += delta.0;
+            c.mouse_position[1] += delta.1;
           }
           _ => {}
         }

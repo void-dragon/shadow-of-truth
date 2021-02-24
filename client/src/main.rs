@@ -14,6 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   let gl_window = glutin::ContextBuilder::new()
       .build_windowed(window, &event_loop)
       .unwrap();
+  gl_window.window().set_cursor_visible(false);
 
   // It is essential to make the context current before calling `gl::load_with`.
   let gl_window = unsafe { gl_window.make_current() }.unwrap();
@@ -90,8 +91,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
           _ => {}
         }
       }
-      Event::RedrawRequested(_) => {
-      },
+      Event::RedrawRequested(_) => { },
       _ => (),
     }
 

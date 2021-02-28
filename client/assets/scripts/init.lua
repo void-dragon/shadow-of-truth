@@ -1,44 +1,52 @@
-local main = methatron.scene.new()
-local drw = methatron.drawable.quick_load(
+local main = methatron.scene.new("main")
+main:create_shader(
+  "phong",
   "assets/shaders/phong.vertex.glsl",
-  "assets/shaders/phong.fragment.glsl",
+  "assets/shaders/phong.fragment.glsl"
+)
+main:create_model(
+  "iko",
   "assets/models/ikosaeder.json"
 )
-
-print("set drawable to node")
-local n0 = methatron.node.new()
-n0:set_drawable(drw)
+main:create_drawable("user", "phong", "iko")
 
 print("main get root")
 local root = main:get_root()
-root:add_child(n0)
 
 local cam = main:get_camera()
 local mat = cam:get_node():get_transform()
-local step = methatron.math.vector.new(0.0, 0.0, 10.0)
-methatron.math.matrix.translate(mat, step)
-
-print("add drawable")
-main:add_drawable(drw)
+local cam_distance = methatron.math.vector.new(0.0, 0.0, 10.0)
 
 print("set scene")
 context:set_scene(main)
+local network = context:network()
+local ub = nil
 
-print("transform")
-local rot_x = methatron.math.matrix.rotate_x
-local rot_y = methatron.math.matrix.rotate_y
-local n0_mat = n0:get_transform()
-local old_pos = context:mouse_position()
+on_connect = function()
+  network:join("main")
+  n0 = network:spawn("main", "user", "assets/scripts/user.remote.lua")
+  print("here")
+  root:add_child(n0)
+
+  local user = require("assets/scripts/user")
+  ub = user.new(n0)
+
+  print(n0:id() .. " " .. n0:network_id())
+end
+
+on_disconnect = function()
+  print("disconnect")
+end
 
 print("prepare update")
 on_update = function()
-  if context:is_key_down("A") then
-    return rot_x(n0_mat, 0.1)
-  elseif context:is_key_down("D") then
-    return rot_x(n0_mat, -0.1)
+  if ub then
+    ub:on_update()
   end
 
   local pos = context:mouse_position()
-  rot_y(n0_mat, (old_pos[1] - pos[1]) / 100)
-  old_pos = pos
+  mat:identity()
+  mat:rotate_y(pos[1] / 300)
+  mat:rotate_x(pos[2] / 200)
+  mat:translate(cam_distance)
 end

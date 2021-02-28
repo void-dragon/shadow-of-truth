@@ -1,10 +1,8 @@
 use std::collections::HashMap;
-use std::error::Error;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock, Weak};
 
 use crate::methatron::{
-  behavior::BehaviorExt,
   drawable::Drawable,
   math::matrix
 };
@@ -17,12 +15,12 @@ pub fn new() -> Node {
   let node = Arc::new(RwLock::new(ImplNode {
     _id: NODE_ID.fetch_add(1, Ordering::SeqCst),
     me: Weak::new(),
+    network_id: String::new(),
     parent: None,
     transform: transform,
     world_transform: matrix::new(),
     drawable: None,
     children: HashMap::new(),
-    behaviors: HashMap::new(),
   }));
 
   node.write().unwrap().me = Arc::downgrade(&node);
@@ -33,29 +31,17 @@ pub fn new() -> Node {
 pub struct ImplNode {
   _id: u64,
   me: Weak<RwLock<ImplNode>>,
+  pub network_id: String,
   pub parent: Option<Node>,
   pub transform: matrix::Matrix,
   pub world_transform: matrix::Matrix,
   pub drawable: Option<Drawable>,
   pub children: HashMap<u64, Node>,
-  pub behaviors: HashMap<u64, Arc<RwLock<dyn BehaviorExt>>>
 }
 
 impl ImplNode {
   pub fn id(&self) -> u64 {
     self._id
-  }
-
-  pub fn on_load(&self) -> Result<(), Box<dyn Error>> {
-    for b in self.behaviors.values() {
-      b.read().unwrap().on_load();
-    }
-
-    for c in self.children.values() {
-      c.read().unwrap().on_load()?;
-    }
-
-    Ok(())
   }
 
   pub fn add_child(&mut self, child: Node) {
@@ -104,12 +90,21 @@ pub struct NodeUserData {
 
 impl mlua::UserData for NodeUserData {
   fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
+    methods.add_method("id", |_, this, ()| {
+      Ok(this.node.read().unwrap().id())
+    });
+
+    methods.add_method("network_id", |_, this, ()| {
+      Ok(this.node.read().unwrap().network_id.clone())
+    });
+
     methods.add_method("set_drawable", |_, this, drawable: mlua::AnyUserData| {
       use crate::methatron::drawable::DrawableUserData;
 
       let mut node = this.node.write().unwrap();
       let bd = drawable.borrow::<DrawableUserData>().unwrap();
       node.set_drawable(bd.drawable.clone());
+
       Ok(())
     });
 
@@ -131,15 +126,6 @@ impl mlua::UserData for NodeUserData {
 
       Ok(())
     });
-
-    // methods.add_method("add_behavior", |_, this, child: mlua::AnyUserData| {
-    //   let mut node = this.node.write().unwrap();
-    //   let child = child.borrow::<NodeUserData>().unwrap();
-
-    //   node.add_child(child.node.clone());
-
-    //   Ok(())
-    // });
 
     methods.add_method("get_transform", |_, this, _: ()| {
       use crate::methatron::math::matrix::MatrixUserData;

@@ -397,50 +397,42 @@ pub struct MatrixUserData {
   pub matrix: Matrix,
 }
 
-impl mlua::UserData for MatrixUserData {}
+impl mlua::UserData for MatrixUserData {
+  fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
+    use crate::methatron::math::vector::VectorUserData;
+
+    methods.add_method("identity", |_, this, (): ()| {
+      identity(&this.matrix);
+      Ok(())
+    });
+
+    methods.add_method("translate", |_, this, v: mlua::AnyUserData| {
+      let bv = v.borrow::<VectorUserData>()?;
+
+      translate(&this.matrix, &bv.vector);
+
+      Ok(())
+    });
+
+    methods.add_method("rotate_x", |_, this, a: f32| {
+      rotate_x(&this.matrix, a);
+      Ok(())
+    });
+
+    methods.add_method("rotate_y", |_, this, a: f32| {
+      rotate_y(&this.matrix, a);
+      Ok(())
+    });
+
+    methods.add_method("rotate_z", |_, this, a: f32| {
+      rotate_z(&this.matrix, a);
+      Ok(())
+    });
+  }
+}
 
 pub fn load_module(lua: &mlua::Lua, ns: &mlua::Table) -> Result<(), mlua::Error> {
-  use crate::methatron::math::vector::VectorUserData;
-  use mlua::AnyUserData;
-
   let module = lua.create_table()?;
-
-  let lua_translate = lua.create_function(|_, (m, v): (AnyUserData, AnyUserData)| {
-    let bm = m.borrow::<MatrixUserData>()?;
-    let bv = v.borrow::<VectorUserData>()?;
-
-    translate(&bm.matrix, &bv.vector);
-
-    Ok(())
-  })?;
-  module.set("translate", lua_translate)?;
-
-  let lua_rot_x = lua.create_function(|_, (m, a): (AnyUserData, f32)| {
-    let bm = m.borrow::<MatrixUserData>()?;
-
-    rotate_x(&bm.matrix, a);
-
-    Ok(())
-  })?;
-  module.set("rotate_x", lua_rot_x)?;
-
-  let lua_rot_y = lua.create_function(|_, (m, a): (AnyUserData, f32)| {
-    let bm = m.borrow::<MatrixUserData>()?;
-
-    rotate_y(&bm.matrix, a);
-
-    Ok(())
-  })?;
-  module.set("rotate_y", lua_rot_y)?;
-
-  let lua_rot_z = lua.create_function(|_, (m, a): (AnyUserData, f32)| {
-    let bm = m.borrow::<MatrixUserData>()?;
-
-    rotate_y(&bm.matrix, a);
-
-    Ok(())
-  })?;
-  module.set("rotate_z", lua_rot_z)?;
 
   ns.set("matrix", module)?;
 

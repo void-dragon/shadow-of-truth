@@ -12,8 +12,9 @@ env_logger = "*"
 gl = "*"
 glutin = "*"
 log = "*"
-mlua = { version = "0.4.2", features = ["luajit", "vendored"]}
+mlua = { version = "*", features = ["luajit", "vendored"]}
 nanoid = "*"
 serde = { version = "*", features = ["derive"]}
 serde_cbor = "*"
 serde_json = "*"
+crossbeam-channel = "*"

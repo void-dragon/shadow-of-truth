@@ -1,14 +1,15 @@
-import json
-import xml.etree.ElementTree as ET
-import sys
+const xml = require('xml-js')
+const fs = require('fs')
+const crypto = require('crypto')
 
-INPUT = sys.argv[2]
-OUTPUT = sys.argv[3]
+const INPUT = process.argv[2];
+const OUTPUT = process.argv[3];
 
-print('INPUT:', INPUT)
-print('OUTPUT:', OUTPUT)
+console.log('INPUT:', INPUT);
+console.log('OUTPUT:', OUTPUT);
 
-data = ET.parse(INPUT)
+let data = xml.xml2json(fs.readFileSync(INPUT), {compact: true})
+data = JSON.parse(data)
 
 geometry = data.COLLADA.library_geometries.geometry
 name = geometry._attributes.id
@@ -25,9 +26,11 @@ normalBuffer = []
 indexBuffer = []
 tupleMap = {}
 
-def add2(dst, src, idx):
-    for i = idx * 3, e = idx * 3 + 3; i < e; i++:
+function add2(dst, src, idx) {
+    for(let i = idx * 3, e = idx * 3 + 3; i < e; i++) {
         dst.push(src[i])
+    }
+}
 
 for(let i = 0; i < faces.length; i+=2) {
     const tuple = []
@@ -66,3 +69,5 @@ evermoreObj = {
 }
 
 fs.writeFileSync(OUTPUT, JSON.stringify(evermoreObj))
+//console.log(vertices)
+// console.log(normals)

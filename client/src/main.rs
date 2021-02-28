@@ -1,8 +1,11 @@
-mod methatron;
+use std::time::{Duration, Instant};
+
 mod context;
+mod events;
 mod lua;
-mod tracer;
+mod methatron;
 mod network;
+mod tracer;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
   let env = env_logger::Env::default().default_filter_or("debug");
@@ -12,8 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   let window = glutin::window::WindowBuilder::new()
     .with_title("shadow-of-truth");
   let gl_window = glutin::ContextBuilder::new()
-      .build_windowed(window, &event_loop)
-      .unwrap();
+    .build_windowed(window, &event_loop)?;
   gl_window.window().set_cursor_visible(false);
 
   // It is essential to make the context current before calling `gl::load_with`.
@@ -22,17 +24,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   // Load the OpenGL function pointers
   gl::load_with(|symbol| gl_window.get_proc_address(symbol));
 
-  log::info!("init luajit");
-
-  let ctx = context::new();
-  let mut net = network::new();
+  let ctx = context::get();
   let pump = methatron::pump::get();
-
-  net.establish_connection();
 
   {
     let ctx = ctx.clone();
     std::thread::spawn(move || {
+      log::info!("init luajit");
+
       if let Err(e) = lua::execute(ctx, "assets/scripts/init.lua") {
         log::error!("{}", e.to_string());
       }
@@ -48,7 +47,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   event_loop.run(move |event, _, control_flow| {
     use glutin::event::{Event, WindowEvent, DeviceEvent, ElementState};
     use glutin::event_loop::ControlFlow;
-    *control_flow = ControlFlow::Wait;
+    let next = Instant::now() + Duration::from_millis(50);
+    *control_flow = ControlFlow::WaitUntil(next);
 
     pump.run();
 
@@ -112,6 +112,5 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     gl_window.swap_buffers().unwrap();
   });
-
-  Ok(())
+  //Ok(())
 }

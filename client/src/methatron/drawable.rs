@@ -1,5 +1,4 @@
 use gl::types::{GLint, GLuint};
-use log::debug;
 
 use crate::methatron::{pump, math::matrix::Matrix, model::Model, node::Node, shader::Shader, vbo::VBO};
 use std::collections::HashMap;
@@ -70,7 +69,7 @@ pub fn new(shader: Shader, model: Model) -> Drawable {
       (vao, indices, vertices, normals, transforms)
     })
   };
-  debug!("created drawable {}", vao);
+  log::debug!("created drawable {}", vao);
 
   Arc::new(RwLock::new(ImplDrawable {
     vao: vao,

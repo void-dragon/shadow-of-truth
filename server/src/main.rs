@@ -1,5 +1,6 @@
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::collections::{HashMap, HashSet};
+use std::error::Error;
+use std::sync::Arc;
 
 use env_logger::Env;
 use tokio::{
@@ -7,7 +8,10 @@ use tokio::{
         TcpStream,
         TcpListener,
     },
-    sync::mpsc::channel,
+    sync::{
+        mpsc::channel,
+        RwLock,
+    }
 };
 
 
@@ -16,9 +20,16 @@ mod client;
 
 use config::Config;
 
-use shadow_of_truth_common as message;
+use shadow_of_truth_common as common;
 
-fn handle_stream(stream: TcpStream, clients: Arc<RwLock<HashMap<String, Arc<RwLock<client::Client>>>>>) {
+type RwClient = Arc<RwLock<client::Client>>;
+type RwClients = Arc<RwLock<HashMap<String, RwClient>>>;
+
+fn handle_stream(
+    stream: TcpStream, 
+    clients: RwClients,
+    rooms: Arc<RwLock<HashMap<String, RwClients>>>,
+) {
     let (mut read, mut write) = stream.into_split();
     let (tx, mut rx) = channel(20);
     let client = Arc::new(RwLock::new(client::Client {
@@ -29,23 +40,71 @@ fn handle_stream(stream: TcpStream, clients: Arc<RwLock<HashMap<String, Arc<RwLo
 
     tokio::spawn(async move {
         loop {
-            match message::async_read(&mut read).await {
+            match common::async_read(&mut read).await {
                 Ok(msg) => {
-                    log::info!("{:?}", msg);
+                    log::debug!("{:?}", msg);
+                    match msg {
+                        common::Message::Login{id} => {
+                            {
+                                let mut client = client.write().await;
+                                client.id = id.clone();
+                            }
+                            let mut clients = clients.write().await;
+                            clients.insert(id, client.clone());
+                        }
+                        common::Message::Join{scene} => {
+                            let mut rooms = rooms.write().await;
+                            let entry = rooms.entry(scene).or_insert_with(|| Arc::new(RwLock::new(HashMap::new())));
+                            let id = {
+                                let c = client.read().await;
+                                c.id.clone()
+                            };
+                            let mut room = entry.write().await; 
+                            room.insert(id, client.clone());
+                        }
+                        common::Message::Spawn{id, scene, drawable, behavior} => {
+                            let rooms = rooms.read().await;
+                            if let Some(clients) = rooms.get(&scene) {
+                                let clients = clients.read().await;
+                                let spawn = common::Message::Spawn{id: id, scene: scene, drawable: drawable, behavior: behavior};
+                                for c in clients.values() {
+                                    let client = c.read().await;
+                                    client.tx.send(spawn.clone()).await;
+                                }
+                            }
+                        }
+                        common::Message::TransformUpdate{scene, id, t} => {
+                            let rooms = rooms.read().await;
+                            if let Some(recipents) = rooms.get(&scene) {
+                                let recipents = recipents.read().await;
+                                let msg = common::Message::TransformUpdate{scene, id, t};
+                                for client in recipents.values() {
+                                    let client = client.read().await;
+                                    client.tx.send(msg.clone()).await;
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
                 }
                 Err(e) => {
-                    let mut c = client.write().unwrap();
-                    c.state = client::ClientState::Disconnected;
-                    log::error!("read {}", e.to_string());
+                    log::error!("read {}", e);
                     break;
                 }
             }
         }
+        let id = {
+            let mut c = client.write().await;
+            c.state = client::ClientState::Disconnected;
+            c.id.clone()
+        };
+        let mut clients = clients.write().await;
+        clients.remove(&id);
     });
 
     tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
-            if let Err(e) = message::async_write(&mut write, msg).await {
+            if let Err(e) = common::async_write(&mut write, msg).await {
                 log::error!("writer {}", e.to_string());
             }
         }
@@ -60,13 +119,14 @@ async fn listen(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     // let private_key = optain_private_key(&filename);
     let listener = TcpListener::bind(addr).await?;
     let clients = Arc::new(RwLock::new(HashMap::new()));
+    let rooms = Arc::new(RwLock::new(HashMap::new()));
 
     log::info!("listen on {}", listener.local_addr()?);
     loop {
         match listener.accept().await {
             Ok((stream, addr)) => {
                 log::info!("connection from {:?}", addr);
-                handle_stream(stream, clients.clone());
+                handle_stream(stream, clients.clone(), rooms.clone());
             }
             Err(e) => log::error!("{}", e.to_string())
         }
@@ -90,7 +150,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Err(e) => log::error!("{}", e.to_string()),
     }
-
 
     Ok(())
 }

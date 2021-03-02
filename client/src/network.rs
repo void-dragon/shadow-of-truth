@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::net::TcpStream;
 use std::sync::{Arc, Mutex, RwLock, Condvar};
 use std::time::Duration;
@@ -16,7 +16,7 @@ use crate::{
 pub struct Network {
   id: String,
   writer: Arc<Mutex<Option<TcpStream>>>,
-  owned: Arc<RwLock<HashSet<String>>>,
+  owned: Arc<RwLock<HashMap<String, (String, Node)>>>,
   synced_nodes: Arc<RwLock<HashMap<String, Node>>>,
   waiting: Arc<RwLock<HashMap<String, Arc<(Mutex<Option<Node>>, Condvar)>>>>,
 }
@@ -63,16 +63,19 @@ impl Network {
       loop {
         match common::read(&mut reader) {
           Ok(msg) => {
-            log::debug!("{:?}", msg);
+            match &msg {
+              &common::Message::TransformUpdate{..} => {}
+              m @ _ => {log::debug!("{:?}", m)}
+            }
+
             match msg {
               common::Message::Spawn{id, scene, drawable, behavior} => {
-                // crate::methatron::drawable::new(shader: Shader, model: Model)
                 let ctx = ctx.read().unwrap();
 
-                if let Some(ref scene) = ctx.scene {
-                  let mut scene = scene.write().unwrap();
+                if let Some(ref sc) = ctx.scene {
+                  let sc = sc.read().unwrap();
                   let node = crate::methatron::node::new();
-                  let drawble = scene.drawables.get(&drawable).unwrap().clone();
+                  let drawble = sc.drawables.get(&drawable).unwrap().clone();
                   {
                     let mut n = node.write().unwrap();
                     n.network_id = id.clone();
@@ -86,17 +89,27 @@ impl Network {
                     let mut waiters = network.waiting.write().unwrap();
                     if let Some(pair) = waiters.remove(&id) {
                       let mut owned = network.owned.write().unwrap();
-                      owned.insert(id.clone());
+                      owned.insert(id.clone(), (scene, node.clone()));
                       let mut opt_node = pair.0.lock().unwrap();
                       *opt_node = Some(node.clone());
                       pair.1.notify_one();
                     }
                   }
+                  sc.root.write().unwrap().add_child(node);
                 }
               }
-              common::Message::Destroy{id} => {}
+              common::Message::Destroy{id, scene} => {}
               common::Message::TransformUpdate{id, scene, t} => {
+                let nodes = network.synced_nodes.read().unwrap();
+                if let Some(node) = nodes.get(&id) {
+                  // log::debug!("sync {} {:?}", id, t);
+                  let node = node.read().unwrap();
+                  let mut m = node.transform.lock().unwrap();
 
+                  for i in 0..16 {
+                    m[i] = t[i];
+                  }
+                }
               }
               _ => {}
             }
@@ -106,6 +119,33 @@ impl Network {
             break;
           }
         }
+      }
+    });
+
+    let network = self.clone();
+    std::thread::spawn(move || {
+      loop {
+        {
+          let mut writer = network.writer.lock().unwrap();
+          if let Some(ref mut writer) = *writer {
+
+            let owned = network.owned.read().unwrap();
+            for (scene, node) in owned.values() {
+              let node = node.read().unwrap();
+              let msg = common::Message::TransformUpdate {
+                id: node.network_id.clone(),
+                t: node.transform.lock().unwrap().clone(),
+                scene: scene.clone(),
+              };
+
+              if let Err(e) = common::write(writer, msg) {
+                log::error!("transform update {}", e.to_string());
+              }
+            }
+          }
+        }
+
+        std::thread::sleep(std::time::Duration::from_millis(50));
       }
     });
 
@@ -159,18 +199,6 @@ impl mlua::UserData for Network {
 
       Ok(())
     });
-
-    methods.add_method("update", |_, this, (scene, node): (String, mlua::AnyUserData)| {
-      let n = node.borrow::<crate::methatron::node::NodeUserData>().unwrap();
-      let node = n.node.read().unwrap();
-      this.send(common::Message::TransformUpdate {
-        scene: scene,
-        id: node.network_id.clone(),
-        t: node.transform.lock().unwrap().clone(),
-      });
-
-      Ok(())
-    });
   }
 }
 
@@ -179,7 +207,7 @@ pub fn new() -> Network {
     id: nanoid::nanoid!(32),
     writer: Arc::new(Mutex::new(None)),
     synced_nodes: Arc::new(RwLock::new(HashMap::new())),
-    owned: Arc::new(RwLock::new(HashSet::new())),
+    owned: Arc::new(RwLock::new(HashMap::new())),
     waiting: Arc::new(RwLock::new(HashMap::new())),
   };
 

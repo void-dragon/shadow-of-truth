@@ -10,9 +10,6 @@ main:create_model(
 )
 main:create_drawable("user", "phong", "iko")
 
-print("main get root")
-local root = main:get_root()
-
 local cam = main:get_camera()
 local mat = cam:get_node():get_transform()
 local cam_distance = methatron.math.vector.new(0.0, 0.0, 10.0)
@@ -25,8 +22,6 @@ local ub = nil
 on_connect = function()
   network:join("main")
   n0 = network:spawn("main", "user", "assets/scripts/user.remote.lua")
-  print("here")
-  root:add_child(n0)
 
   local user = require("assets/scripts/user")
   ub = user.new(n0)
@@ -49,4 +44,7 @@ on_update = function()
   mat:rotate_y(pos[1] / 300)
   mat:rotate_x(pos[2] / 200)
   mat:translate(cam_distance)
+end
+
+on_draw = function()
 end

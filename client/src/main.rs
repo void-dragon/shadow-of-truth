@@ -44,45 +44,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     gl::DepthFunc(gl::LEQUAL);
   }
 
+  let mut start = Instant::now();
   event_loop.run(move |event, _, control_flow| {
-    use glutin::event::{Event, WindowEvent, DeviceEvent, ElementState};
+    use glutin::event::{Event, WindowEvent, DeviceEvent, ElementState, StartCause, KeyboardInput, VirtualKeyCode};
     use glutin::event_loop::ControlFlow;
-    let next = Instant::now() + Duration::from_millis(50);
+    let next = Instant::now() + Duration::from_millis(25);
     *control_flow = ControlFlow::WaitUntil(next);
-
-    pump.run();
-
-    let error = unsafe { gl::GetError() };
-
-    if error != 0 {
-      panic!("OPEN_GL ERROR {}", error);
-    }
 
     match event {
       Event::LoopDestroyed => return,
       Event::WindowEvent { event, .. } => match event {
-          WindowEvent::CloseRequested => {
-              // Cleanup
-              *control_flow = ControlFlow::Exit
-          },
-          _ => (),
-      },
-      Event::DeviceEvent { event, .. } => {
-        match event {
-          DeviceEvent::Key(key) => {
-            if let Some(code) = key.virtual_keycode {
-              let name = format!("{:?}", code);
+          WindowEvent::CloseRequested => { *control_flow = ControlFlow::Exit }
+          WindowEvent::KeyboardInput { 
+            input: KeyboardInput { virtual_keycode: Some(virtual_code), state, .. },
+            ..
+          } => {
+            if virtual_code == VirtualKeyCode::Escape {
+              *control_flow = ControlFlow::Exit;
+            }
 
-              match key.state {
-                ElementState::Pressed => {
-                  ctx.write().unwrap().keys_down.insert(name);
-                }
-                ElementState::Released => {
-                  ctx.write().unwrap().keys_down.remove(&name);
-                }
+            let name = format!("{:?}", virtual_code);
+            match state {
+              ElementState::Pressed => {
+                ctx.write().unwrap().keys_down.insert(name);
+              }
+              ElementState::Released => {
+                ctx.write().unwrap().keys_down.remove(&name);
               }
             }
           }
+          _ => {}
+      },
+      Event::DeviceEvent { event, .. } => {
+        match event {
           DeviceEvent::MouseMotion{delta} => {
             let mut c = ctx.write().unwrap();
             c.mouse_position[0] += delta.0;
@@ -91,26 +85,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
           _ => {}
         }
       }
-      Event::RedrawRequested(_) => { },
       _ => (),
     }
 
-    unsafe {
-      gl::ClearColor(0.0, 0.0, 0.0, 1.0);
-      gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+    if start.elapsed().as_millis() > 20 {
+      pump.run();
+
+      let error = unsafe { gl::GetError() };
+
+      if error != 0 {
+        panic!("OPEN_GL ERROR {}", error);
+      }
+
+      unsafe {
+        gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+        gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+      }
+
+      if let Some(scene) = &ctx.read().unwrap().scene {
+        scene.read().unwrap().draw();
+      }
+
+      let error = unsafe { gl::GetError() };
+
+      if error != 0 {
+        panic!("OPEN_GL ERROR {}", error);
+      }
+
+      gl_window.swap_buffers().unwrap();
+      start = Instant::now();
     }
-
-    if let Some(scene) = &ctx.read().unwrap().scene {
-      scene.read().unwrap().draw();
-    }
-
-    let error = unsafe { gl::GetError() };
-
-    if error != 0 {
-      panic!("OPEN_GL ERROR {}", error);
-    }
-
-    gl_window.swap_buffers().unwrap();
   });
   //Ok(())
 }

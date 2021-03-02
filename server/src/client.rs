@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 
 use tokio::sync::mpsc::Sender;
@@ -32,6 +33,8 @@ pub enum ClientState {
 
 pub struct Client {
   pub id: String,
+  pub room: String,
+  pub owned_spawns: HashSet<String>,
   pub state: ClientState,
   pub tx: Sender<Message>,
 }

@@ -22,7 +22,7 @@ pub enum Message {
   Join{scene: String},
   Leave{scene: String},
   Spawn{id: String, scene: String, drawable: String, behavior: String},
-  Destroy{id: String},
+  Destroy{id: String, scene: String},
   TransformUpdate{scene: String, id: String, t: [f32; 16]},
 }
 

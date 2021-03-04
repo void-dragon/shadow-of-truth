@@ -58,6 +58,17 @@ impl ImplNode {
     self.children.insert(id, child);
   }
 
+  pub fn remove_child(&mut self, child: Node) {
+    let id = {
+      let child = child.read().unwrap();
+      child._id
+    };
+    if let Some(_) = self.children.remove(&id) {
+      let mut child = child.write().unwrap();
+      child.parent = None;
+    }
+  }
+
   pub fn set_drawable(&mut self, drawable: Drawable) {
     if let Some(drawable) = &self.drawable {
       let mut d = drawable.write().unwrap();
@@ -72,12 +83,28 @@ impl ImplNode {
   }
 
   pub fn update_world_transform(&self, root: &matrix::Matrix) {
-    matrix::identity(&self.world_transform);
-    matrix::mul_assign(&self.world_transform, root);
-    matrix::mul_assign(&self.world_transform, &self.transform);
+    {
+      let mut wt = self.world_transform.lock().unwrap();
+      matrix::identity(&mut wt);
+      matrix::mul_assign(&mut wt, &root.lock().unwrap());
+      let t = self.transform.lock().unwrap();
+      matrix::mul_assign(&mut wt, &t);
+    }
 
     for c in &self.children {
       c.1.read().unwrap().update_world_transform(&self.world_transform);
+    }
+  }
+
+  pub fn dispose(&self) {
+    if let Some(drawable) = &self.drawable {
+      let mut d = drawable.write().unwrap();
+      d.references.remove(&self._id);
+    }
+
+    if let Some(ref parent) = self.parent {
+      let mut parent = parent.write().unwrap();
+      parent.remove_child(self.me.upgrade().unwrap());
     }
   }
 }
@@ -123,6 +150,15 @@ impl mlua::UserData for NodeUserData {
       let child = child.borrow::<NodeUserData>().unwrap();
 
       node.add_child(child.node.clone());
+
+      Ok(())
+    });
+
+    methods.add_method("remove_child", |_, this, child: mlua::AnyUserData| {
+      let mut node = this.node.write().unwrap();
+      let child = child.borrow::<NodeUserData>().unwrap();
+
+      node.remove_child(child.node.clone());
 
       Ok(())
     });

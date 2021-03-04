@@ -1,4 +1,6 @@
 use std::sync::{Arc, Mutex};
+use std::rc::Rc;
+use std::cell::RefCell;
 
 use crate::methatron::math::{vector, vector::Vector};
 
@@ -10,8 +12,7 @@ pub fn new() -> Matrix {
   Arc::new(Mutex::new(m))
 }
 
-pub fn identity(m: &Matrix) {
-  let mut m = m.lock().unwrap();
+pub fn identity(m: &mut [f32; 16]) {
   m[0] = 1.0;
   m[1] = 0.0;
   m[2] = 0.0;
@@ -30,8 +31,7 @@ pub fn identity(m: &Matrix) {
   m[15] = 1.0;
 }
 
-pub fn scale(m: &Matrix, v: &Vector) {
-  let mut m = m.lock().unwrap();
+pub fn scale(m: &mut [f32; 16], v: &Vector) {
   m[0] = v[0] * m[0];
   m[1] = v[0] * m[1];
   m[2] = v[0] * m[2];
@@ -48,16 +48,14 @@ pub fn scale(m: &Matrix, v: &Vector) {
   m[11] = v[2] * m[11];
 }
 
-pub fn translate(m: &Matrix, v: &Vector) {
-  let mut m = m.lock().unwrap();
+pub fn translate(m: &mut [f32; 16], v: &Vector) {
   m[12] = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12];
   m[13] = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13];
   m[14] = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[14];
   m[15] = v[0] * m[3] + v[1] * m[7] + v[2] * m[11] + m[15];
 }
 
-pub fn rotate_by_vector(m: &Matrix, a: f32, n: &Vector) {
-  let mut m = m.lock().unwrap();
+pub fn rotate_by_vector(m: &mut [f32; 16], a: f32, n: &Vector) {
   let sin_a = a.sin();
   let cos_a = a.cos();
   let mut tm = vec![0.0; 12];
@@ -94,9 +92,7 @@ pub fn rotate_by_vector(m: &Matrix, a: f32, n: &Vector) {
   }
 }
 
-pub fn mul(m: &Matrix, o: &Matrix) -> Matrix {
-  let m = m.lock().unwrap();
-  let o = o.lock().unwrap();
+pub fn mul(m: &[f32; 16], o: &[f32; 16]) -> Matrix {
   let mut e = [0.0; 16];
 
   e[0] = o[0] * m[0] + o[1] * m[4] + o[2] * m[8] + o[3] * m[12];
@@ -122,9 +118,7 @@ pub fn mul(m: &Matrix, o: &Matrix) -> Matrix {
   return Arc::new(Mutex::new(e));
 }
 
-pub fn mul_assign(m: &Matrix, o: &Matrix) {
-  let mut m = m.lock().unwrap();
-  let o = o.lock().unwrap();
+pub fn mul_assign(m: &mut [f32; 16], o: &[f32; 16]) {
   let mut tm = [0.0; 16];
 
   tm[0] = o[0] * m[0] + o[1] * m[4] + o[2] * m[8] + o[3] * m[12];
@@ -152,8 +146,7 @@ pub fn mul_assign(m: &Matrix, o: &Matrix) {
   }
 }
 
-pub fn rotate_x(m: &Matrix, v: f32) {
-  let mut m = m.lock().unwrap();
+pub fn rotate_x(m: &mut [f32; 16], v: f32) {
   let sin_a = v.sin();
   let cos_a = v.cos();
 
@@ -192,8 +185,7 @@ pub fn rotate_x(m: &Matrix, v: f32) {
   m[11] = tm_11;
 }
 
-pub fn rotate_y(m: &Matrix, v: f32) {
-  let mut m = m.lock().unwrap();
+pub fn rotate_y(m: &mut [f32; 16], v: f32) {
   let sin_a = v.sin();
   let cos_a = v.cos();
 
@@ -222,8 +214,7 @@ pub fn rotate_y(m: &Matrix, v: f32) {
   m[11] = tm_11;
 }
 
-pub fn rotate_z(m: &Matrix, v: f32) {
-  let mut m = m.lock().unwrap();
+pub fn rotate_z(m: &mut [f32; 16], v: f32) {
   let sin_a = v.sin();
   let cos_a = v.cos();
 
@@ -252,8 +243,7 @@ pub fn rotate_z(m: &Matrix, v: f32) {
   m[7] = tm_7;
 }
 
-pub fn look_at(m: &Matrix, lookat: &Vector, up: &Vector) {
-  let mut m = m.lock().unwrap();
+pub fn look_at(m: &mut [f32; 16], lookat: &Vector, up: &Vector) {
   let eye = [m[12], m[13], m[14]];
   let mut f = vector::sub(&eye, &lookat);
 
@@ -276,8 +266,7 @@ pub fn look_at(m: &Matrix, lookat: &Vector, up: &Vector) {
   m[10] = -f[2];
 }
 
-pub fn determinant(m: &Matrix) -> f32 {
-  let m = m.lock().unwrap();
+pub fn determinant(m: &[f32; 16]) -> f32 {
   let erg = m[12] * m[9] * m[6] * m[3] - m[8] * m[13] * m[6] * m[3] - m[12] * m[5] * m[10] * m[3] + m[4] * m[13] * m[10] * m[3] + m[8] * m[5] * m[14] * m[3]
     - m[4] * m[9] * m[14] * m[3]
     - m[12] * m[9] * m[2] * m[7]
@@ -302,8 +291,7 @@ pub fn determinant(m: &Matrix) -> f32 {
   return erg;
 }
 
-pub fn distance_to_vector(m: &Matrix, v: &Vector) -> f32 {
-  let m = m.lock().unwrap();
+pub fn distance_to_vector(m: &[f32; 16], v: &Vector) -> f32 {
   let dx = m[12] - v[0];
   let dy = m[13] - v[1];
   let dz = m[14] - v[2];
@@ -311,9 +299,7 @@ pub fn distance_to_vector(m: &Matrix, v: &Vector) -> f32 {
   return (dx * dx + dy * dy + dz * dz).sqrt();
 }
 
-pub fn distance_to_matrix(m: &Matrix, o: &Matrix) -> f32 {
-  let m = m.lock().unwrap();
-  let o = o.lock().unwrap();
+pub fn distance_to_matrix(m: &[f32; 16], o: &[f32; 16]) -> f32 {
   let dx = m[12] - o[12];
   let dy = m[13] - o[13];
   let dz = m[14] - o[14];
@@ -321,8 +307,7 @@ pub fn distance_to_matrix(m: &Matrix, o: &Matrix) -> f32 {
   return (dx * dx + dy * dy + dz * dz).sqrt();
 }
 
-pub fn rotation(m: &Matrix) -> [f32; 4] {
-  let m = m.lock().unwrap();
+pub fn rotation(m: &[f32; 16]) -> [f32; 4] {
   let tr = m[0] + m[5] + m[10];
   let mut qw = 0.0;
   let mut qx = 0.0;
@@ -358,10 +343,8 @@ pub fn rotation(m: &Matrix) -> [f32; 4] {
   return [qx, qy, qz, qw];
 }
 
-pub fn inverse(m: &Matrix, res: &Matrix) {
+pub fn inverse(m: &[f32; 16], res: &mut [f32; 16]) {
   let d = determinant(m);
-  let m = m.lock().unwrap();
-  let mut res = res.lock().unwrap();
 
   res[0] = (-m[13] * m[10] * m[7] + m[9] * m[14] * m[7] + m[13] * m[6] * m[11] - m[5] * m[14] * m[11] - m[9] * m[6] * m[15] + m[5] * m[10] * m[15]) / d;
   res[4] = (m[12] * m[10] * m[7] - m[8] * m[14] * m[7] - m[12] * m[6] * m[11] + m[4] * m[14] * m[11] + m[8] * m[6] * m[15] - m[4] * m[10] * m[15]) / d;
@@ -381,8 +364,7 @@ pub fn inverse(m: &Matrix, res: &Matrix) {
   res[15] = (-m[8] * m[5] * m[2] + m[4] * m[9] * m[2] + m[8] * m[1] * m[6] - m[0] * m[9] * m[6] - m[4] * m[1] * m[10] + m[0] * m[5] * m[10]) / d;
 }
 
-pub fn perspective(m: &Matrix, fovy: f32, aspect: f32, znear: f32, zfar: f32) {
-  let mut m = m.lock().unwrap();
+pub fn perspective(m: &mut [f32; 16], fovy: f32, aspect: f32, znear: f32, zfar: f32) {
   // float f = 1 / tanf(fovy / 2);
   let f = (fovy * 0.5).cos() / (fovy * 0.5).sin(); // numerical more stable
 
@@ -402,30 +384,82 @@ impl mlua::UserData for MatrixUserData {
     use crate::methatron::math::vector::VectorUserData;
 
     methods.add_method("identity", |_, this, (): ()| {
-      identity(&this.matrix);
+      let mut m = this.matrix.lock().unwrap();
+      identity(&mut *m);
       Ok(())
     });
 
     methods.add_method("translate", |_, this, v: mlua::AnyUserData| {
       let bv = v.borrow::<VectorUserData>()?;
 
-      translate(&this.matrix, &bv.vector);
+      let mut m = this.matrix.lock().unwrap();
+      translate(&mut *m, &bv.vector);
 
       Ok(())
     });
 
     methods.add_method("rotate_x", |_, this, a: f32| {
-      rotate_x(&this.matrix, a);
+      let mut m = this.matrix.lock().unwrap();
+      rotate_x(&mut *m, a);
       Ok(())
     });
 
     methods.add_method("rotate_y", |_, this, a: f32| {
-      rotate_y(&this.matrix, a);
+      let mut m = this.matrix.lock().unwrap();
+      rotate_y(&mut *m, a);
       Ok(())
     });
 
     methods.add_method("rotate_z", |_, this, a: f32| {
-      rotate_z(&this.matrix, a);
+      let mut m = this.matrix.lock().unwrap();
+      rotate_z(&mut *m, a);
+      Ok(())
+    });
+
+    methods.add_method("batch", |_, this, cb: mlua::Function| {
+      let mut m = this.matrix.lock().unwrap();
+      {
+        let data = Rc::new(RefCell::new(m.clone()));
+        let local = LocalMatrixData(data.clone());
+        cb.call((local,))?;
+        *m = *data.borrow();
+      }
+      Ok(())
+    });
+  }
+}
+
+struct LocalMatrixData(Rc<RefCell<[f32; 16]>>);
+
+impl mlua::UserData for LocalMatrixData {
+  fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
+    use crate::methatron::math::vector::VectorUserData;
+
+    methods.add_method("identity", |_, this, (): ()| {
+      identity(&mut *this.0.borrow_mut());
+      Ok(())
+    });
+
+    methods.add_method("translate", |_, this, v: mlua::AnyUserData| {
+      let bv = v.borrow::<VectorUserData>()?;
+
+      translate(&mut *this.0.borrow_mut(), &bv.vector);
+
+      Ok(())
+    });
+
+    methods.add_method("rotate_x", |_, this, a: f32| {
+      rotate_x(&mut *this.0.borrow_mut(), a);
+      Ok(())
+    });
+
+    methods.add_method("rotate_y", |_, this, a: f32| {
+      rotate_y(&mut *this.0.borrow_mut(), a);
+      Ok(())
+    });
+
+    methods.add_method("rotate_z", |_, this, a: f32| {
+      rotate_z(&mut *this.0.borrow_mut(), a);
       Ok(())
     });
   }

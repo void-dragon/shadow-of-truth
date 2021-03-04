@@ -40,10 +40,12 @@ on_update = function()
   end
 
   local pos = context:mouse_position()
-  mat:identity()
-  mat:rotate_y(pos[1] / 300)
-  mat:rotate_x(pos[2] / 200)
-  mat:translate(cam_distance)
+  mat:batch(function(m)
+    m:identity()
+    m:rotate_y(pos[1] / 300)
+    m:rotate_x(pos[2] / 200)
+    m:translate(cam_distance)
+  end)
 end
 
 on_draw = function()

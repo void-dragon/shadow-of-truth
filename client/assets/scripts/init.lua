@@ -18,12 +18,12 @@ print("set scene")
 context:set_scene(main)
 local network = context:network()
 local ub = nil
+local user = require("assets/scripts/user")
 
 on_connect = function()
   network:join("main")
   n0 = network:spawn("main", "user", "assets/scripts/user.remote.lua")
 
-  local user = require("assets/scripts/user")
   ub = user.new(n0)
 
   print(n0:id() .. " " .. n0:network_id())
@@ -33,7 +33,17 @@ on_disconnect = function()
   print("disconnect")
 end
 
-print("prepare update")
+on_key_press = function(key)
+  -- print("press " .. key)
+  if ub then
+    ub:on_key_press(key)
+  end
+end
+
+on_key_release = function(key)
+  print("release " .. key)
+end
+
 on_update = function()
   if ub then
     ub:on_update()
@@ -46,7 +56,4 @@ on_update = function()
     m:rotate_x(pos[2] / 200)
     m:translate(cam_distance)
   end)
-end
-
-on_draw = function()
 end

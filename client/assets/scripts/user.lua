@@ -4,6 +4,11 @@ return {
         local network = context:network()
 
         return {
+            on_key_press = function(key)
+                if key == "Q" then
+                    print("q pressed")
+                end
+            end
             on_update = function()
                 if context:is_key_down("A") then
                     mat:translate(methatron.math.vector.new(0.1, 0.0, 0.0))

@@ -53,14 +53,27 @@ pub fn execute(ctx: context::Context, filename: &str) -> Result<(), Box<dyn Erro
     loop {
       let start = std::time::Instant::now();
       while let Ok(event) = events.receiver.try_recv() {
-        match event {
+        let cb: Option<mlua::Function> = match event {
           crate::events::Events::Connected => {
-            let on_connect: mlua::Function = globals.get("on_connect")?;
-            on_connect.call(())?;
+            globals.get("on_connect").ok()
           }
-          _ => {}
+          crate::events::Events::Disconnected => {
+            globals.get("on_connect").ok()
+          }
+          crate::events::Events::KeyPressed(key) => {
+            globals.get("on_key_press").ok().map(|f: mlua::Function| f.bind(key).unwrap())
+          }
+          crate::events::Events::KeyReleased(key) => {
+            globals.get("on_key_release").ok().map(|f: mlua::Function| f.bind(key).unwrap())
+          }
+          _ => {None}
+        };
+
+        if let Some(cb) = cb {
+          cb.call(())?;
         }
       }
+
       on_update.call(())?;
       let elapsed = start.elapsed();
 

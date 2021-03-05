@@ -26,6 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
   let ctx = context::get();
   let pump = methatron::pump::get();
+  let ev = events::get();
 
   {
     let ctx = ctx.clone();
@@ -64,11 +65,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             let name = format!("{:?}", virtual_code);
+            let is_pressed = { ctx.read().unwrap().keys_down.get(&name).is_some() };
             match state {
               ElementState::Pressed => {
+                if !is_pressed {
+                  ev.sender.send(events::Events::KeyPressed(name.clone())).unwrap();
+                }
                 ctx.write().unwrap().keys_down.insert(name);
               }
               ElementState::Released => {
+                if is_pressed {
+                  ev.sender.send(events::Events::KeyReleased(name.clone())).unwrap();
+                }
                 ctx.write().unwrap().keys_down.remove(&name);
               }
             }

@@ -1,6 +1,8 @@
 pub enum Events {
     Connected,
     Disconnected,
+    KeyPressed(String),
+    KeyReleased(String),
 }
 
 #[derive(Clone)]

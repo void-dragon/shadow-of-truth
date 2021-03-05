@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     std::thread::spawn(move || {
       log::info!("init luajit");
 
-      if let Err(e) = lua::execute(ctx, "assets/scripts/init.lua") {
+      if let Err(e) = lua::execute(ctx, "assets/scripts/init.lua", |_| Ok(())) {
         log::error!("{}", e.to_string());
       }
     });

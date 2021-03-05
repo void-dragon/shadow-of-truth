@@ -4,11 +4,13 @@ return {
         local network = context:network()
 
         return {
-            on_key_press = function(key)
+            on_key_press = function(self, key)
+                print("user on key press: " .. key)
                 if key == "Q" then
                     print("q pressed")
+                    network:spawn("main", "rocket", "assets/scripts/rocket.lua")
                 end
-            end
+            end,
             on_update = function()
                 if context:is_key_down("A") then
                     mat:translate(methatron.math.vector.new(0.1, 0.0, 0.0))

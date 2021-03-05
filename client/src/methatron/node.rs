@@ -15,6 +15,7 @@ pub fn new() -> Node {
   let node = Arc::new(RwLock::new(ImplNode {
     _id: NODE_ID.fetch_add(1, Ordering::SeqCst),
     me: Weak::new(),
+    is_disposed: false,
     network_id: String::new(),
     parent: None,
     transform: transform,
@@ -31,6 +32,7 @@ pub fn new() -> Node {
 pub struct ImplNode {
   _id: u64,
   me: Weak<RwLock<ImplNode>>,
+  pub is_disposed: bool,
   pub network_id: String,
   pub parent: Option<Node>,
   pub transform: matrix::Matrix,
@@ -96,16 +98,28 @@ impl ImplNode {
     }
   }
 
-  pub fn dispose(&self) {
-    if let Some(drawable) = &self.drawable {
-      let mut d = drawable.write().unwrap();
-      d.references.remove(&self._id);
-    }
+  pub fn dispose(&mut self) {
+    if !self.is_disposed {
+      if let Some(drawable) = &self.drawable {
+        let mut d = drawable.write().unwrap();
+        d.references.remove(&self._id);
+      }
+      self.drawable = None;
 
-    if let Some(ref parent) = self.parent {
-      let mut parent = parent.write().unwrap();
-      parent.remove_child(self.me.upgrade().unwrap());
+      if let Some(ref parent) = self.parent {
+        let mut parent = parent.write().unwrap();
+        parent.children.remove(&self._id);
+      }
+      self.parent = None;
+      self.is_disposed = true;
     }
+  }
+}
+
+impl Drop for ImplNode {
+  fn drop(&mut self) {
+    log::debug!("dropped {}", self._id);
+    self.dispose();
   }
 }
 

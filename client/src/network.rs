@@ -70,9 +70,9 @@ impl Network {
 
             match msg {
               common::Message::Spawn{id, scene, drawable, behavior} => {
-                let ctx = ctx.read().unwrap();
+                let c = ctx.read().unwrap();
 
-                if let Some(ref sc) = ctx.scene {
+                if let Some(ref sc) = c.scene {
                   let sc = sc.read().unwrap();
                   let node = crate::methatron::node::new();
                   let drawble = sc.drawables.get(&drawable).unwrap().clone();
@@ -85,7 +85,7 @@ impl Network {
                     let mut nodes = network.synced_nodes.write().unwrap();
                     nodes.insert(id.clone(), node.clone());
                   }
-                  {
+                  let is_owner = {
                     let mut waiters = network.waiting.write().unwrap();
                     if let Some(pair) = waiters.remove(&id) {
                       let mut owned = network.owned.write().unwrap();
@@ -93,21 +93,48 @@ impl Network {
                       let mut opt_node = pair.0.lock().unwrap();
                       *opt_node = Some(node.clone());
                       pair.1.notify_one();
+
+                      true
                     }
+                    else {
+                      false
+                    }
+                  };
+
+                  sc.root.write().unwrap().add_child(node.clone());
+
+                  if let Some(bhv) = behavior {
+                    let ctx = ctx.clone();
+                    let node = node.clone();
+                    std::thread::spawn(move || {
+                      if let Err(e) = crate::lua::execute(ctx, &bhv, move |globals| {
+                        globals.set("node", crate::methatron::node::NodeUserData{ node: node.clone() })?;
+                        globals.set("is_owner", is_owner)?;
+                        Ok(())
+                      }) {
+                        log::error!("{}", e);
+                      }
+                    });
                   }
-                  sc.root.write().unwrap().add_child(node);
                 }
               }
-              common::Message::Destroy{id, scene} => {}
+              common::Message::Destroy{id, scene} => {
+                let mut synced_nodes = network.synced_nodes.write().unwrap(); 
+                if let Some(node) = synced_nodes.remove(&id) {
+                  node.write().unwrap().dispose();
+                }
+              }
               common::Message::TransformUpdate{id, scene, t} => {
-                let nodes = network.synced_nodes.read().unwrap();
-                if let Some(node) = nodes.get(&id) {
-                  // log::debug!("sync {} {:?}", id, t);
-                  let node = node.read().unwrap();
-                  let mut m = node.transform.lock().unwrap();
-
-                  for i in 0..16 {
-                    m[i] = t[i];
+                let is_owned = {
+                  let owned = network.owned.read().unwrap();
+                  owned.contains_key(&id)
+                };
+                if !is_owned {
+                  let nodes = network.synced_nodes.read().unwrap();
+                  if let Some(node) = nodes.get(&id) {
+                    // log::debug!("sync {} {:?}", id, t);
+                    let node = node.read().unwrap();
+                    *node.transform.lock().unwrap() = t;
                   }
                 }
               }
@@ -164,7 +191,7 @@ impl Network {
 
 impl mlua::UserData for Network {
   fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
-    methods.add_method("spawn", |_, this, (scene, drawable, behave): (String, String, String)| {
+    methods.add_method("spawn", |_, this, (scene, drawable, behave): (String, String, Option<String>)| {
       let id = nanoid::nanoid!(32);
       let pair = {
         let mut waiters = this.waiting.write().unwrap();
@@ -196,6 +223,12 @@ impl mlua::UserData for Network {
 
     methods.add_method("join", |_, this, scene: String| {
       this.send(common::Message::Join { scene: scene });
+
+      Ok(())
+    });
+
+    methods.add_method("destroy", |_, this, (scene, id): (String, String)| {
+      this.send(common::Message::Destroy { scene: scene, id: id });
 
       Ok(())
     });

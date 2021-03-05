@@ -5,10 +5,15 @@ main:create_shader(
   "assets/shaders/phong.fragment.glsl"
 )
 main:create_model(
+  "cube",
+  "assets/models/cube.json"
+)
+main:create_model(
   "iko",
   "assets/models/ikosaeder.json"
 )
-main:create_drawable("user", "phong", "iko")
+main:create_drawable("user", "phong", "cube")
+main:create_drawable("rocket", "phong", "iko")
 
 local cam = main:get_camera()
 local mat = cam:get_node():get_transform()
@@ -22,7 +27,7 @@ local user = require("assets/scripts/user")
 
 on_connect = function()
   network:join("main")
-  n0 = network:spawn("main", "user", "assets/scripts/user.remote.lua")
+  n0 = network:spawn("main", "user", nil)
 
   ub = user.new(n0)
 

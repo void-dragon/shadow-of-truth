@@ -1,10 +1,16 @@
 use std::error::Error;
+use std::sync::{
+  atomic::{AtomicBool, Ordering},
+  Arc,
+};
 
 use crate::methatron;
 use crate::context;
 use crate::tracer;
 
-pub fn execute(ctx: context::Context, filename: &str) -> Result<(), Box<dyn Error>> {
+pub fn execute<F>(ctx: context::Context, filename: &str, env: F) -> Result<(), Box<dyn Error>> 
+where F: Fn(&mlua::Table) -> mlua::Result<()>
+{
   let lua = mlua::Lua::new();
   let meth = lua.create_table()?;
 
@@ -14,6 +20,9 @@ pub fn execute(ctx: context::Context, filename: &str) -> Result<(), Box<dyn Erro
   methatron::math::load_module(&lua, &meth)?;
 
   let globals = lua.globals();
+
+  env(&globals)?;
+
   globals.set("methatron", meth)?;
   globals.set("context", context::ContextUserData(ctx.clone()))?;
   globals.set("tracer", tracer::new())?;
@@ -40,6 +49,16 @@ pub fn execute(ctx: context::Context, filename: &str) -> Result<(), Box<dyn Erro
     globals.set("execute", exe)?;
   }
 
+  let running = Arc::new(AtomicBool::new(true));
+  {
+    let running = running.clone();
+    let exe = lua.create_function(move |_, (): ()| {
+      running.store(false, Ordering::SeqCst);
+      Ok(())
+    })?;
+    globals.set("exit", exe)?;
+  }
+
   {
     let src = std::fs::read(filename)?;
     let code = lua.load(&src);
@@ -50,8 +69,9 @@ pub fn execute(ctx: context::Context, filename: &str) -> Result<(), Box<dyn Erro
     let on_update: mlua::Function = globals.get("on_update")?;
     let events = crate::events::get();
 
-    loop {
+    while running.load(Ordering::SeqCst) {
       let start = std::time::Instant::now();
+
       while let Ok(event) = events.receiver.try_recv() {
         let cb: Option<mlua::Function> = match event {
           crate::events::Events::Connected => {
@@ -77,10 +97,11 @@ pub fn execute(ctx: context::Context, filename: &str) -> Result<(), Box<dyn Erro
       on_update.call(())?;
       let elapsed = start.elapsed();
 
-      std::thread::sleep(std::time::Duration::from_millis(30) - elapsed);
+      if elapsed.as_millis() < 30 {
+        std::thread::sleep(std::time::Duration::from_millis(30) - elapsed);
+      }
     }
   }
-  else {
-    Ok(())
-  }
+
+  Ok(())
 }

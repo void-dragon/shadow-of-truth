@@ -21,7 +21,7 @@ pub enum Message {
   Login{id: String},
   Join{scene: String},
   Leave{scene: String},
-  Spawn{id: String, scene: String, drawable: String, behavior: String},
+  Spawn{id: String, scene: String, drawable: String, behavior: Option<String>},
   Destroy{id: String, scene: String},
   TransformUpdate{scene: String, id: String, t: [f32; 16]},
 }

@@ -59,9 +59,9 @@ impl ServerContext {
         }
     }
 
-    async fn relay_message(&self, scene: String, msg: &common::Message) {
+    async fn relay_message(&self, scene: &String, msg: &common::Message) {
         let rooms = self.rooms.read().await;
-        if let Some(clients) = rooms.get(&scene) {
+        if let Some(clients) = rooms.get(scene) {
             let clients = clients.read().await;
 
             for c in clients.values() {
@@ -93,10 +93,11 @@ impl ServerContext {
 
         {
             let mut cache = self.room_spawn_cache.write().await;
-            if let Some(room) = cache.get_mut(&room) {
+            if let Some(r) = cache.get_mut(&room) {
                 let client = client.read().await;
                 for id in client.owned_spawns.iter() {
-                    room.remove(id);
+                    self.relay_message(&room, &common::Message::Destroy{scene: room.clone(), id: id.clone()}).await;
+                    r.remove(id);
                 }
             }
         }
@@ -150,7 +151,7 @@ fn handle_stream(
                                 client.owned_spawns.insert(id);
                             }
                             ctx.fill_spawn_cache(&spawn).await;
-                            ctx.relay_message(scene, &spawn).await;
+                            ctx.relay_message(&scene, &spawn).await;
                         }
                         common::Message::Destroy{id, scene} => {
                             let destroy = common::Message::Destroy{id: id.clone(), scene: scene.clone()};
@@ -159,11 +160,11 @@ fn handle_stream(
                                 client.owned_spawns.remove(&id);
                             }
                             ctx.clean_spawn_cache(&destroy).await;
-                            ctx.relay_message(scene, &destroy).await;
+                            ctx.relay_message(&scene, &destroy).await;
                         }
                         common::Message::TransformUpdate{scene, id, t} => {
                             let msg = common::Message::TransformUpdate{scene: scene.clone(), id, t};
-                            ctx.relay_message(scene, &msg).await;
+                            ctx.relay_message(&scene, &msg).await;
                         }
                         _ => {}
                     }

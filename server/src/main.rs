@@ -121,7 +121,7 @@ fn handle_stream(
     tokio::spawn(async move {
         loop {
             match common::async_read(&mut read).await {
-                Ok(msg) => {
+                Ok(Some(msg)) => {
                     match msg {
                         common::Message::Login{id} => {
                             {
@@ -169,6 +169,7 @@ fn handle_stream(
                         _ => {}
                     }
                 }
+                Ok(None) => { break }
                 Err(e) => {
                     log::error!("read {}", e);
                     break;

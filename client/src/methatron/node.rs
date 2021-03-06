@@ -118,7 +118,6 @@ impl ImplNode {
 
 impl Drop for ImplNode {
   fn drop(&mut self) {
-    log::debug!("dropped {}", self._id);
     self.dispose();
   }
 }

@@ -5,9 +5,7 @@ return {
 
         return {
             on_key_press = function(self, key)
-                print("user on key press: " .. key)
                 if key == "Q" then
-                    print("q pressed")
                     network:spawn("main", "rocket", "assets/scripts/rocket.lua")
                 end
             end,

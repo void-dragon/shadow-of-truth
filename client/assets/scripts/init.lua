@@ -46,7 +46,7 @@ on_key_press = function(key)
 end
 
 on_key_release = function(key)
-  print("release " .. key)
+  -- print("release " .. key)
 end
 
 on_update = function()

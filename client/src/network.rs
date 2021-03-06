@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::net::TcpStream;
-use std::sync::{Arc, Mutex, RwLock, Condvar};
+use std::sync::{Arc, Mutex, RwLock, Condvar, atomic::{AtomicBool, Ordering}};
 use std::time::Duration;
 
 use shadow_of_truth_common as common;
@@ -19,6 +19,7 @@ pub struct Network {
   owned: Arc<RwLock<HashMap<String, (String, Node)>>>,
   synced_nodes: Arc<RwLock<HashMap<String, Node>>>,
   waiting: Arc<RwLock<HashMap<String, Arc<(Mutex<Option<Node>>, Condvar)>>>>,
+  running: Arc<AtomicBool>,
 }
 
 impl Network {
@@ -60,9 +61,9 @@ impl Network {
     std::thread::spawn(move || {
       let ctx = crate::context::get();
 
-      loop {
+      while network.running.load(Ordering::SeqCst) {
         match common::read(&mut reader) {
-          Ok(msg) => {
+          Ok(Some(msg)) => {
             match &msg {
               &common::Message::TransformUpdate{..} => {}
               m @ _ => {log::debug!("{:?}", m)}
@@ -119,6 +120,9 @@ impl Network {
                 }
               }
               common::Message::Destroy{id, scene} => {
+                let mut owned = network.owned.write().unwrap();
+                owned.remove(&id);
+
                 let mut synced_nodes = network.synced_nodes.write().unwrap(); 
                 if let Some(node) = synced_nodes.remove(&id) {
                   node.write().unwrap().dispose();
@@ -141,6 +145,7 @@ impl Network {
               _ => {}
             }
           }
+          Ok(None) => { break }
           Err(e) => {
             log::error!("read {}", e.to_string());
             break;
@@ -151,7 +156,7 @@ impl Network {
 
     let network = self.clone();
     std::thread::spawn(move || {
-      loop {
+      while network.running.load(Ordering::SeqCst) {
         {
           let mut writer = network.writer.lock().unwrap();
           if let Some(ref mut writer) = *writer {
@@ -166,7 +171,7 @@ impl Network {
               };
 
               if let Err(e) = common::write(writer, msg) {
-                log::error!("transform update {}", e.to_string());
+                log::error!("transform update {}", e);
               }
             }
           }
@@ -185,6 +190,14 @@ impl Network {
       if let Err(e) = common::write(writer, msg) {
         log::error!("write {}", e.to_string());
       }
+    }
+  }
+
+  pub fn shutdown(&self) {
+    self.running.store(false, Ordering::SeqCst);
+    let mut writer = self.writer.lock().unwrap();
+    if let Some(ref mut writer) = *writer {
+      writer.shutdown(std::net::Shutdown::Both).unwrap();
     }
   }
 }
@@ -242,6 +255,7 @@ pub fn new() -> Network {
     synced_nodes: Arc::new(RwLock::new(HashMap::new())),
     owned: Arc::new(RwLock::new(HashMap::new())),
     waiting: Arc::new(RwLock::new(HashMap::new())),
+    running: Arc::new(AtomicBool::new(true)),
   };
 
   net.establish_connection();

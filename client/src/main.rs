@@ -96,6 +96,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       _ => (),
     }
 
+    if *control_flow == ControlFlow::Exit {
+      ctx.read().unwrap().network.shutdown();
+    }
+
     if start.elapsed().as_millis() > 20 {
       pump.run();
 

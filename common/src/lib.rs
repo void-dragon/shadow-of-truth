@@ -1,4 +1,4 @@
-use std::io::{Read, Write};
+use std::io::{Read, Write, ErrorKind};
 
 use serde::{Serialize, Deserialize};
 use tokio::{
@@ -44,13 +44,23 @@ pub enum Command {
   },
 }
 
-pub fn read<T: Read>(read: &mut T) -> Result<Message, Box<dyn std::error::Error>> {
+pub fn read<T: Read>(read: &mut T) -> Result<Option<Message>, Box<dyn std::error::Error>> {
     let mut size_buffer = [0u8; 4];
-    read.read_exact(&mut size_buffer)?;
+    match read.read_exact(&mut size_buffer) {
+      Ok(_) => {}
+      Err(ref e) if e.kind() == ErrorKind::BrokenPipe => { return Ok(None) }
+      Err(ref e) if e.kind() == ErrorKind::UnexpectedEof => { return Ok(None) }
+      Err(e) => { return Err(e.into()) }
+    }
 
     let size = u32::from_le_bytes(size_buffer);
     let mut data = vec![0u8; size as usize];
-    read.read_exact(&mut data)?;
+    match read.read_exact(&mut data) {
+      Ok(_) => {}
+      Err(ref e) if e.kind() == ErrorKind::BrokenPipe => { return Ok(None) }
+      Err(ref e) if e.kind() == ErrorKind::UnexpectedEof => { return Ok(None) }
+      Err(e) => { return Err(e.into()) }
+    }
 
     Ok(serde_cbor::from_slice(&data)?)
 }
@@ -65,15 +75,27 @@ pub fn write<T: Write>(write: &mut T, msg: Message) -> Result<(), Box<dyn std::e
     Ok(())
 }
 
-pub async fn async_read(read: &mut OwnedReadHalf) -> Result<Message, String> {
+pub async fn async_read(read: &mut OwnedReadHalf) -> Result<Option<Message>, String> {
+
     let mut size_buffer = [0u8; 4];
-    read.read_exact(&mut size_buffer).await.map_err(|e| e.to_string())?;
+    match read.read_exact(&mut size_buffer).await {
+      Ok(_) => {}
+      Err(ref e) if e.kind() == ErrorKind::BrokenPipe => { return Ok(None) }
+      Err(ref e) if e.kind() == ErrorKind::UnexpectedEof => { return Ok(None) }
+      Err(e) => { return Err(e.to_string()) }
+    }
 
     let size = u32::from_le_bytes(size_buffer);
     let mut data = vec![0u8; size as usize];
-    read.read_exact(&mut data).await.map_err(|e| e.to_string())?;
+    match read.read_exact(&mut data).await {
+      Ok(_) => {}
+      Err(ref e) if e.kind() == ErrorKind::BrokenPipe => { return Ok(None) }
+      Err(ref e) if e.kind() == ErrorKind::UnexpectedEof => { return Ok(None) }
+      Err(e) => { return Err(e.to_string()) }
+    }
 
-    Ok(serde_cbor::from_slice(&data).map_err(|e| e.to_string())?)
+    let msg = serde_cbor::from_slice(&data).map_err(|e| e.to_string())?;
+    Ok(Some(msg))
 }
 
 pub async fn async_write(write: &mut OwnedWriteHalf, msg: Message) -> Result<(), String> {

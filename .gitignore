@@ -1,1 +1,4 @@
 target/
+tools/*.json
+tools/*.cbor
+tools/*.dae

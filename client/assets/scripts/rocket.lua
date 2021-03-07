@@ -7,8 +7,8 @@ on_update = function()
         m:rotate_y(0.03)
         border = border - 1
         if border == 0 then
-            context:network():destroy("main", node:network_id())
-            exit()
+            engine:network():destroy("main", node:network_id())
+            lua.exit()
         end
     end
 end

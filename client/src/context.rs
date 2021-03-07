@@ -61,5 +61,9 @@ impl mlua::UserData for ContextUserData {
         let ctx = this.0.read().unwrap();
         Ok(ctx.network.clone())
       });
+
+      methods.add_method("execute", |_, this, filename: String| {
+        Ok(())
+      });
    }
 }

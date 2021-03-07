@@ -8,6 +8,32 @@ use crate::methatron;
 use crate::context;
 use crate::tracer;
 
+fn lua_env(lua: &mlua::Lua) -> mlua::Result<Arc<AtomicBool>> {
+  let l = lua.create_table()?;
+
+  let print = lua.create_function(|_, params: mlua::Variadic<String>| {
+    log::info!("{}", params.iter().fold("".to_owned(), |a, b| a + b));
+    Ok(())
+  })?;
+  l.set("print", print)?;
+
+  let running = Arc::new(AtomicBool::new(true));
+  {
+    let running = running.clone();
+    let exe = lua.create_function(move |_, (): ()| {
+      running.store(false, Ordering::SeqCst);
+      Ok(())
+    })?;
+    l.set("exit", exe)?;
+  }
+
+  l.set("tracer", tracer::new())?;
+
+  lua.globals().set("lua", l)?;
+
+  Ok(running)
+}
+
 pub fn execute<F>(ctx: context::Context, filename: &str, env: F) -> Result<(), Box<dyn Error>> 
 where F: Fn(&mlua::Table) -> mlua::Result<()>
 {
@@ -22,42 +48,10 @@ where F: Fn(&mlua::Table) -> mlua::Result<()>
   let globals = lua.globals();
 
   env(&globals)?;
+  let running = lua_env(&lua)?;
 
   globals.set("methatron", meth)?;
-  globals.set("context", context::ContextUserData(ctx.clone()))?;
-  globals.set("tracer", tracer::new())?;
-
-  let print = lua.create_function(|_, params: mlua::Variadic<String>| {
-    log::info!("{}", params.iter().fold("".to_owned(), |a, b| a + b));
-    Ok(())
-  })?;
-  globals.set("print", print)?;
-
-  {
-    let ctx = ctx.clone();
-    let exe = lua.create_function(move |_, filename: String| {
-      let ctx = ctx.clone();
-
-      // tokio::spawn(async move {
-      //   if let Err(e) = execute(ctx, &filename).await {
-      //     log::error!("{}", e.to_string());
-      //   }
-      // });
-
-      Ok(())
-    })?;
-    globals.set("execute", exe)?;
-  }
-
-  let running = Arc::new(AtomicBool::new(true));
-  {
-    let running = running.clone();
-    let exe = lua.create_function(move |_, (): ()| {
-      running.store(false, Ordering::SeqCst);
-      Ok(())
-    })?;
-    globals.set("exit", exe)?;
-  }
+  globals.set("engine", context::ContextUserData(ctx.clone()))?;
 
   {
     let src = std::fs::read(filename)?;

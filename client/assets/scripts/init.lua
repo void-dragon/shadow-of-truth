@@ -19,9 +19,9 @@ local cam = main:get_camera()
 local mat = cam:get_node():get_transform()
 local cam_distance = methatron.math.vector.new(0.0, 0.0, 10.0)
 
-print("set scene")
-context:set_scene(main)
-local network = context:network()
+lua.print("set scene")
+engine:set_scene(main)
+local network = engine:network()
 local ub = nil
 local user = require("assets/scripts/user")
 
@@ -31,11 +31,11 @@ on_connect = function()
 
   ub = user.new(n0)
 
-  print(n0:id() .. " " .. n0:network_id())
+  lua.print(n0:id() .. " " .. n0:network_id())
 end
 
 on_disconnect = function()
-  print("disconnect")
+  lua.print("disconnect")
 end
 
 on_key_press = function(key)
@@ -54,7 +54,7 @@ on_update = function()
     ub:on_update()
   end
 
-  local pos = context:mouse_position()
+  local pos = engine:mouse_position()
   mat:batch(function(m)
     m:identity()
     m:rotate_y(pos[1] / 300)

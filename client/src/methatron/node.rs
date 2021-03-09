@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock, Weak};
 
 use crate::methatron::{
+  material::{self, Material},
   drawable::Drawable,
   math::matrix
 };
@@ -22,6 +23,7 @@ pub fn new() -> Node {
     world_transform: matrix::new(),
     drawable: None,
     children: HashMap::new(),
+    material: material::new(),
   }));
 
   node.write().unwrap().me = Arc::downgrade(&node);
@@ -38,6 +40,7 @@ pub struct ImplNode {
   pub transform: matrix::Matrix,
   pub world_transform: matrix::Matrix,
   pub drawable: Option<Drawable>,
+  pub material: Material,
   pub children: HashMap<u64, Node>,
 }
 

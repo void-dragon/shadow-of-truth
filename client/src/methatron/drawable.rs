@@ -1,13 +1,21 @@
 use gl::types::{GLint, GLuint};
 
-use crate::methatron::{pump, math::matrix::Matrix, model::Model, node::Node, shader::Shader, vbo::VBO};
+use crate::methatron::{
+  pump, 
+  material,
+  math::matrix::Matrix, 
+  model::Model, 
+  node::Node, 
+  shader::Shader, 
+  vbo::VBO
+};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 pub fn new(shader: Shader, model: Model) -> Drawable {
   let pump = pump::get();
 
-  let (vao, indices, vertices, normals, transforms) = {
+  let (vao, indices, vertices, normals, transforms, materials) = {
     let shader = shader.clone();
     let model = model.clone();
     pump.exec(move || {
@@ -32,7 +40,7 @@ pub fn new(shader: Shader, model: Model) -> Drawable {
       unsafe {
         let shader = shader.read().unwrap();
         gl::EnableVertexAttribArray(shader.position);
-        gl::VertexAttribPointer(shader.position, 3, gl::FLOAT, gl::FALSE, float_size * 3, std::ptr::null());
+        gl::VertexAttribPointer(shader.position as _, 3, gl::FLOAT, gl::FALSE, float_size * 3, std::ptr::null());
       }
 
       let normals = VBO::new(gl::ARRAY_BUFFER, gl::STATIC_DRAW, &model.normals);
@@ -66,7 +74,26 @@ pub fn new(shader: Shader, model: Model) -> Drawable {
         gl::VertexAttribDivisor(shader.t0 + 3, 1);
       }
 
-      (vao, indices, vertices, normals, transforms)
+      let material_buffer: Vec<f32> = vec![1.0; 10];
+      let materials = VBO::new(gl::ARRAY_BUFFER, gl::DYNAMIC_DRAW, &material_buffer);
+      let material_offset = float_size * 10;
+      unsafe {
+        let shader = shader.read().unwrap();
+        gl::EnableVertexAttribArray(shader.material.ambient);
+        gl::EnableVertexAttribArray(shader.material.diffuse);
+        gl::EnableVertexAttribArray(shader.material.specular);
+        gl::EnableVertexAttribArray(shader.material.shininess);
+        gl::VertexAttribPointer(shader.material.ambient, 3, gl::FLOAT, gl::FALSE, material_offset, 0 as *const _);
+        gl::VertexAttribPointer(shader.material.diffuse, 3, gl::FLOAT, gl::FALSE, material_offset, (float_size * 3) as *const _);
+        gl::VertexAttribPointer(shader.material.specular, 3, gl::FLOAT, gl::FALSE, material_offset, (float_size * 6) as *const _);
+        gl::VertexAttribPointer(shader.material.shininess, 1, gl::FLOAT, gl::FALSE, material_offset, (float_size * 9) as *const _);
+        gl::VertexAttribDivisor(shader.material.ambient, 1);
+        gl::VertexAttribDivisor(shader.material.diffuse, 1);
+        gl::VertexAttribDivisor(shader.material.specular, 1);
+        gl::VertexAttribDivisor(shader.material.shininess, 1);
+      }
+
+      (vao, indices, vertices, normals, transforms, materials)
     })
   };
   log::debug!("created drawable {}", vao);
@@ -83,6 +110,8 @@ pub fn new(shader: Shader, model: Model) -> Drawable {
     shader: shader,
     indices_count: model.read().unwrap().indices.len(),
     //model: model,
+    material_buffer: vec![0.0; 10],
+    materials: materials,
   }))
 }
 
@@ -98,6 +127,8 @@ pub struct ImplDrawable {
   shader: Shader,
   indices_count: usize,
   //model: Model,
+  materials: VBO,
+  material_buffer: Vec<f32>,
 }
 
 impl ImplDrawable {
@@ -108,19 +139,30 @@ impl ImplDrawable {
   pub fn update_instance_matrices(&mut self) {
     if self.transform_buffer.len() != self.references.len() * 16 {
       self.transform_buffer = vec![0.0; self.references.len() * 16];
+      self.material_buffer = vec![0.0; self.references.len() * 10];
     }
 
     let mut off = 0;
+    let mut mat_off = 0;
     for node in &self.references {
       let n = node.1.read().unwrap();
-      let m = n.world_transform.lock().unwrap();
-      for i in 0..16 {
-        self.transform_buffer[i + off] = m[i];
+      {
+        let m = n.world_transform.lock().unwrap();
+        self.transform_buffer[off .. off + 16].copy_from_slice(&*m);
+        off += 16;
       }
-      off += 16;
+      {
+        let mat = n.material.read().unwrap();
+        self.material_buffer[mat_off .. mat_off + 3].copy_from_slice(&mat.ambient);
+        self.material_buffer[mat_off + 3.. mat_off + 6].copy_from_slice(&mat.diffuse);
+        self.material_buffer[mat_off + 6.. mat_off + 9].copy_from_slice(&mat.specular);
+        self.material_buffer[mat_off + 9] = mat.shininess;
+        mat_off += 10;
+      }
     }
 
     self.transforms.set(&self.transform_buffer);
+    self.materials.set(&self.material_buffer);
   }
 
   pub fn draw(&mut self, mvp: &Matrix) {

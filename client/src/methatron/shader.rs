@@ -16,10 +16,24 @@ pub fn new() -> Shader {
     sources: Vec::new(),
     is_linked: false,
     mvp: 0,
+    material: MaterialLoc {
+      ambient: 0,
+      diffuse: 0,
+      specular: 0,
+      shininess: 0,
+    },
     position: 0,
     normal: 0,
     t0: 0,
   }))
+}
+
+#[derive(Debug)]
+pub struct MaterialLoc {
+  pub ambient: GLuint,
+  pub diffuse: GLuint,
+  pub specular: GLuint,
+  pub shininess: GLuint,
 }
 
 pub struct ImplShader {
@@ -27,6 +41,7 @@ pub struct ImplShader {
   sources: Vec<GLuint>,
   is_linked: bool,
   pub mvp: GLint,
+  pub material: MaterialLoc,
   pub position: GLuint,
   pub normal: GLuint,
   pub t0: GLuint,
@@ -100,16 +115,25 @@ impl ImplShader {
             let mvp = CString::new("mvp".as_bytes()).unwrap();
             let mvp = gl::GetUniformLocation(program, mvp.as_ptr());
 
+            let mat_ambient = CString::new("m_ambient".as_bytes()).unwrap();
+            let amb = gl::GetAttribLocation(program, mat_ambient.as_ptr()) as _;
+            let material = MaterialLoc {
+              ambient: amb,
+              diffuse: amb + 1,
+              specular: amb + 2,
+              shininess: amb + 3,
+            };
+
             let pos = CString::new("position".as_bytes()).unwrap();
-            let position = gl::GetAttribLocation(program, pos.as_ptr()) as GLuint;
+            let position = gl::GetAttribLocation(program, pos.as_ptr()) as _;
 
             let normal = CString::new("normal".as_bytes()).unwrap();
-            let normal = gl::GetAttribLocation(program, normal.as_ptr()) as GLuint;
+            let normal = gl::GetAttribLocation(program, normal.as_ptr()) as _;
 
             let t0 = CString::new("t0".as_bytes()).unwrap();
-            let t0 = gl::GetAttribLocation(program, t0.as_ptr()) as GLuint;
+            let t0 = gl::GetAttribLocation(program, t0.as_ptr()) as _;
 
-            Ok((mvp, position, normal, t0))
+            Ok((mvp, material, position, normal, t0))
           } else {
             let mut len = 0;
             gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut len);
@@ -123,8 +147,10 @@ impl ImplShader {
       });
 
       match result {
-        Ok((mvp, pos, normal, t0)) => {
+        Ok((mvp, material, pos, normal, t0)) => {
+          log::debug!("{:?}", material);
           self.mvp = mvp;
+          self.material = material;
           self.position = pos;
           self.normal = normal;
           self.t0 = t0;

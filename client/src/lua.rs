@@ -44,6 +44,7 @@ where F: Fn(&mlua::Table) -> mlua::Result<()>
   methatron::drawable::load_module(&lua, &meth)?;
   methatron::node::load_module(&lua, &meth)?;
   methatron::math::load_module(&lua, &meth)?;
+  methatron::light::load_module(&lua, &meth)?;
 
   let globals = lua.globals();
 

@@ -2,10 +2,10 @@ use gl::types::{GLint, GLuint};
 
 use crate::methatron::{
   pump, 
-  material,
   math::matrix::Matrix, 
   model::Model, 
   node::Node, 
+  light::Light,
   shader::Shader, 
   vbo::VBO
 };
@@ -132,10 +132,6 @@ pub struct ImplDrawable {
 }
 
 impl ImplDrawable {
-  pub fn id(&self) -> GLuint {
-    self.vao
-  }
-
   pub fn update_instance_matrices(&mut self) {
     if self.transform_buffer.len() != self.references.len() * 16 {
       self.transform_buffer = vec![0.0; self.references.len() * 16];
@@ -165,7 +161,7 @@ impl ImplDrawable {
     self.materials.set(&self.material_buffer);
   }
 
-  pub fn draw(&mut self, mvp: &Matrix) {
+  pub fn draw(&mut self, mvp: &Matrix, lights: &Vec<Light>) {
     self.update_instance_matrices();
     unsafe {
       gl::BindVertexArray(self.vao);
@@ -184,6 +180,15 @@ impl ImplDrawable {
         gl::UniformMatrix4fv(shader.mvp, 1, gl::FALSE, mvp.as_ptr() as *const _);
       }
 
+      {
+        let light = &lights[0];
+        let light = light.read().unwrap();
+        gl::Uniform3fv(shader.light.position, 1, light.position.as_ptr());
+        gl::Uniform3fv(shader.light.ambient, 1, light.ambient.as_ptr());
+        gl::Uniform3fv(shader.light.diffuse, 1, light.diffuse.as_ptr());
+        gl::Uniform3fv(shader.light.specular, 1, light.specular.as_ptr());
+      }
+
       // !! meditate about it !!
       // https://stackoverflow.com/questions/32447641/what-is-common-cause-of-range-out-of-bounds-of-buffer-in-webgl
       gl::DrawElementsInstanced(
@@ -197,38 +202,18 @@ impl ImplDrawable {
   }
 }
 
-pub type Drawable = Arc<RwLock<ImplDrawable>>;
+impl Drop for ImplDrawable {
+  fn drop(&mut self) {
+    unsafe {
+      gl::DeleteVertexArrays(1, &mut self.vao as *mut _);
+    }
+  }
+}
 
+pub type Drawable = Arc<RwLock<ImplDrawable>>;
 
 pub struct DrawableUserData {
   pub drawable: Drawable,
 }
 
 impl mlua::UserData for DrawableUserData {}
-
-pub fn load_module(lua: &mlua::Lua, ns: &mlua::Table) -> Result<(), mlua::Error> {
-  use crate::methatron::error;
-  let module = lua.create_table()?;
-
-  let quick_load = lua.create_function(|_, (v, f, m): (String, String, String)| {
-    let model = crate::methatron::model::load(&m).map_err(|e| error::to_lua_err(&e))?;
-    let shader = crate::methatron::shader::new();
-
-    {
-      let vertex_src = std::fs::read_to_string(v)?;
-      let fragment_src = std::fs::read_to_string(f)?;
-      let mut shader = shader.write().map_err(|e| error::to_lua_err(&e.to_string()))?;
-      shader.load(gl::VERTEX_SHADER, vertex_src).map_err(|e| error::to_lua_err(&e))?;
-      shader.load(gl::FRAGMENT_SHADER, fragment_src).map_err(|e| error::to_lua_err(&e))?;
-      shader.link().map_err(|e| error::to_lua_err(&e))?;
-    }
-
-    let drawable = crate::methatron::drawable::new(shader, model);
-    let userdata = DrawableUserData {drawable: drawable};
-    Ok(userdata)
-  })?;
-  module.set("quick_load", quick_load)?;
-  ns.set("drawable", module)?;
-
-  Ok(())
-}

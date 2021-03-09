@@ -12,10 +12,15 @@ pub struct ImplLight {
 
 pub type Light = Arc<RwLock<ImplLight>>;
 
-pub struct LightUserData(Light);
+pub struct LightUserData(pub Light);
 
 impl mlua::UserData for LightUserData {
   fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
+    methods.add_method("get_node", |_, this, ()| {
+      use crate::methatron::node::NodeUserData;
+      let node = this.0.read().unwrap().node.clone();
+      Ok(NodeUserData { node: node })
+    });
   }
 }
 

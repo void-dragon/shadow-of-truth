@@ -65,14 +65,22 @@ pub fn read<T: Read>(read: &mut T) -> Result<Option<Message>, Box<dyn std::error
     Ok(serde_cbor::from_slice(&data)?)
 }
 
-pub fn write<T: Write>(write: &mut T, msg: Message) -> Result<(), Box<dyn std::error::Error>> {
+pub fn write<T: Write>(write: &mut T, msg: Message) -> Result<Option<()>, Box<dyn std::error::Error>> {
     let data = serde_cbor::to_vec(&msg)?;
     let size_buffer = (data.len() as u32).to_le_bytes();
 
-    write.write(&size_buffer)?;
-    write.write_all(&data)?;
+    match write.write(&size_buffer) {
+      Ok(_) => {}
+      Err(ref e) if e.kind() == ErrorKind::BrokenPipe => { return Ok(None) }
+      Err(e) => { return Err(e.into()) }
+    }
+    match write.write_all(&data) {
+      Ok(_) => {}
+      Err(ref e) if e.kind() == ErrorKind::BrokenPipe => { return Ok(None) }
+      Err(e) => { return Err(e.into()) }
+    }
 
-    Ok(())
+    Ok(Some(()))
 }
 
 pub async fn async_read(read: &mut OwnedReadHalf) -> Result<Option<Message>, String> {
@@ -98,12 +106,20 @@ pub async fn async_read(read: &mut OwnedReadHalf) -> Result<Option<Message>, Str
     Ok(Some(msg))
 }
 
-pub async fn async_write(write: &mut OwnedWriteHalf, msg: Message) -> Result<(), String> {
+pub async fn async_write(write: &mut OwnedWriteHalf, msg: Message) -> Result<Option<()>, String> {
     let data = serde_cbor::to_vec(&msg).map_err(|e| e.to_string())?;
     let size_buffer = (data.len() as u32).to_le_bytes();
 
-    write.write(&size_buffer).await.map_err(|e| e.to_string())?;
-    write.write_all(&data).await.map_err(|e| e.to_string())?;
+    match write.write(&size_buffer).await {
+      Ok(_) => {}
+      Err(ref e) if e.kind() == ErrorKind::BrokenPipe => { return Ok(None) }
+      Err(e) => { return Err(e.to_string()) }
+    }
+    match write.write_all(&data).await {
+      Ok(_) => {}
+      Err(ref e) if e.kind() == ErrorKind::BrokenPipe => { return Ok(None) }
+      Err(e) => { return Err(e.to_string()) }
+    }
 
-    Ok(())
+    Ok(Some(()))
 }

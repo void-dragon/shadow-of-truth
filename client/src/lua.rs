@@ -41,7 +41,6 @@ where F: Fn(&mlua::Table) -> mlua::Result<()>
   let meth = lua.create_table()?;
 
   methatron::scene::load_module(&lua, &meth)?;
-  methatron::drawable::load_module(&lua, &meth)?;
   methatron::node::load_module(&lua, &meth)?;
   methatron::math::load_module(&lua, &meth)?;
   methatron::light::load_module(&lua, &meth)?;

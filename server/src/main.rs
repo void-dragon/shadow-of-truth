@@ -122,6 +122,12 @@ fn handle_stream(
         loop {
             match common::async_read(&mut read).await {
                 Ok(Some(msg)) => {
+                    match &msg {
+                        &common::Message::TransformUpdate{..} => {}
+                        m @ _ => {
+                            log::debug!("{:?}", m);
+                        }
+                    }
                     match msg {
                         common::Message::Login{id} => {
                             {

@@ -8,18 +8,25 @@ use crate::methatron::{
   node,
   model::{self, Model},
   math::matrix,
+  light::{self, Light},
   shader::{self, Shader}
 };
 
 pub fn new(id: String) -> Scene {
   let root = node::new();
   let camera = camera::new(1024, 780);
+  let light = light::new();
 
-  root.write().unwrap().add_child(camera.read().unwrap().node.clone());
+  {
+    let mut root = root.write().unwrap();
+    root.add_child(camera.read().unwrap().node.clone());
+    root.add_child(light.read().unwrap().node.clone());
+  }
 
   Arc::new(RwLock::new(ImplScene {
     id: id,
     camera: camera,
+    lights: vec![light],
     root: root,
     models: HashMap::new(),
     shaders: HashMap::new(),
@@ -30,6 +37,7 @@ pub fn new(id: String) -> Scene {
 pub struct ImplScene {
   pub id: String,
   pub camera: camera::Camera,
+  pub lights: Vec<Light>,
   pub models: HashMap<String, Model>,
   pub shaders: HashMap<String, Shader>,
   pub drawables: HashMap<String, Drawable>,
@@ -41,6 +49,16 @@ impl ImplScene {
     let identity = matrix::new();
     self.root.read().unwrap().update_world_transform(&identity);
 
+    for light in &self.lights {
+      let mut l = light.write().unwrap();
+      let n = l.node.clone();
+      let n = n.read().unwrap();
+      let w = n.world_transform.lock().unwrap();
+      l.position[0] = w[12];
+      l.position[1] = w[13];
+      l.position[2] = w[14];
+    }
+
     let mvp = {
       let cam = self.camera.write().unwrap();
       cam.calculate();
@@ -49,7 +67,7 @@ impl ImplScene {
     };
 
     for drawable in &self.drawables {
-      drawable.1.write().unwrap().draw(&mvp);
+      drawable.1.write().unwrap().draw(&mvp, &self.lights);
     }
   }
 }
@@ -132,6 +150,14 @@ impl mlua::UserData for SceneUserData {
       let scene = this.scene.read().map_err(|e| error::to_lua_err(&e.to_string()))?;
       let camera = scene.camera.clone();
       Ok(CameraUserData { camera: camera })
+    });
+
+    methods.add_method("get_lights", |_, this, _: ()| {
+      use crate::methatron::light::LightUserData;
+
+      let scene = this.scene.read().map_err(|e| error::to_lua_err(&e.to_string()))?;
+      let lights: Vec<LightUserData> = scene.lights.iter().map(|l| LightUserData(l.clone())).collect();
+      Ok(lights)
     });
   }
 }

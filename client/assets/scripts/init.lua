@@ -19,6 +19,11 @@ local cam = main:get_camera()
 local mat = cam:get_node():get_transform()
 local cam_distance = methatron.math.vector.new(0.0, 0.0, 10.0)
 
+local light = main:get_lights()[1]
+local l_node = light:get_node()
+local l_mat = l_node:get_transform()
+l_mat:translate(methatron.math.vector.new(0, 2, 0))
+
 lua.print("set scene")
 engine:set_scene(main)
 local network = engine:network()

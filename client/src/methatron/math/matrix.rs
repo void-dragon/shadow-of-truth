@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use crate::methatron::math::{vector, vector::Vector};
+use crate::methatron::math::vector::{self, Vector, VectorUserData};
 
 pub type Matrix = Arc<Mutex<[f32; 16]>>;
 
@@ -92,7 +92,7 @@ pub fn rotate_by_vector(m: &mut [f32; 16], a: f32, n: &Vector) {
   }
 }
 
-pub fn mul(m: &[f32; 16], o: &[f32; 16]) -> Matrix {
+pub fn mul(m: &[f32; 16], o: &[f32; 16]) -> [f32; 16] {
   let mut e = [0.0; 16];
 
   e[0] = o[0] * m[0] + o[1] * m[4] + o[2] * m[8] + o[3] * m[12];
@@ -115,7 +115,7 @@ pub fn mul(m: &[f32; 16], o: &[f32; 16]) -> Matrix {
   e[14] = o[12] * m[2] + o[13] * m[6] + o[14] * m[10] + o[15] * m[14];
   e[15] = o[12] * m[3] + o[13] * m[7] + o[14] * m[11] + o[15] * m[15];
 
-  return Arc::new(Mutex::new(e));
+  e
 }
 
 pub fn mul_assign(m: &mut [f32; 16], o: &[f32; 16]) {
@@ -248,12 +248,12 @@ pub fn look_at(m: &mut [f32; 16], lookat: &Vector, up: &Vector) {
   let mut f = vector::sub(&eye, &lookat);
 
   vector::normalize(&mut f);
-  // vector::normalize(&mut up);
 
   let mut s = vector::cross(&f, &up);
   vector::normalize(&mut s);
 
-  let u = vector::cross(&s, &f);
+  let mut u = vector::cross(&s, &f);
+  vector::normalize(&mut u);
 
   m[0] = s[0];
   m[1] = s[1];
@@ -261,9 +261,41 @@ pub fn look_at(m: &mut [f32; 16], lookat: &Vector, up: &Vector) {
   m[4] = u[0];
   m[5] = u[1];
   m[6] = u[2];
-  m[8] = -f[0];
-  m[9] = -f[1];
-  m[10] = -f[2];
+  m[8] = f[0];
+  m[9] = f[1];
+  m[10] = f[2];
+}
+
+pub fn look_at_from(eye: &[f32; 3], lookat: &Vector, up: &Vector) -> [f32; 16] {
+  let mut m = [0.0; 16];
+
+  let mut f = vector::sub(&eye, &lookat);
+  vector::normalize(&mut f);
+
+  let mut s = vector::cross(&f, &up);
+  vector::normalize(&mut s);
+
+  let mut u = vector::cross(&s, &f);
+  vector::normalize(&mut u);
+
+  m[0] = s[0];
+  m[1] = s[1];
+  m[2] = s[2];
+  m[3] = 0.0; //-vector::dot(&s, &eye);
+  m[4] = u[0];
+  m[5] = u[1];
+  m[6] = u[2];
+  m[7] = 0.0; //-vector::dot(&u, &eye);
+  m[8] = f[0];
+  m[9] = f[1];
+  m[10] = f[2];
+  m[11] = 0.0; //-vector::dot(&f, &eye);
+  m[12] = 0.0; //-vector::dot(&s, &eye);
+  m[13] = 0.0; //-vector::dot(&u, &eye);
+  m[14] = 0.0; //-vector::dot(&f, &eye);
+  m[15] = 1.0;
+
+  m
 }
 
 pub fn determinant(m: &[f32; 16]) -> f32 {
@@ -369,10 +401,44 @@ pub fn perspective(m: &mut [f32; 16], fovy: f32, aspect: f32, znear: f32, zfar: 
   let f = (fovy * 0.5).cos() / (fovy * 0.5).sin(); // numerical more stable
 
   m[0] = f / aspect;
+  m[1] = 0.0;
+  m[2] = 0.0;
+  m[3] = 0.0;
+  m[4] = 0.0;
   m[5] = f;
+  m[6] = 0.0;
+  m[7] = 0.0;
+  m[8] = 0.0;
+  m[9] = 0.0;
   m[10] = (zfar + znear) / (znear - zfar);
   m[11] = -1.0;
+  m[12] = 0.0;
+  m[13] = 0.0;
   m[14] = (2.0 * znear * zfar) / (znear - zfar);
+  m[15] = 1.0;
+}
+
+pub fn ortho(top: f32, bottom: f32, left: f32, right: f32, near: f32, far: f32) -> [f32; 16] {
+  let mut m = [0.0; 16];
+
+  m[0] = 2.0 / (right - left);
+  m[1] = 0.0;
+  m[2] = 0.0;
+  m[3] = 0.0;
+  m[4] = 0.0;
+  m[5] = 2.0 / (top - bottom);
+  m[6] = 0.0;
+  m[7] = 0.0;
+  m[8] = 0.0;
+  m[9] = 0.0;
+  m[10] = 2.0 / (far - near);
+  m[11] = 0.0;
+  m[12] = -(right + left) / (right - left);
+  m[13] = -(top + bottom) / (top - bottom);
+  m[14] = -(far + near) / (far - near);
+  m[15] = 1.0;
+
+  m
 }
 
 pub struct MatrixUserData {
@@ -381,19 +447,22 @@ pub struct MatrixUserData {
 
 impl mlua::UserData for MatrixUserData {
   fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
-    use crate::methatron::math::vector::VectorUserData;
-
     methods.add_method("identity", |_, this, (): ()| {
       let mut m = this.matrix.lock().unwrap();
       identity(&mut *m);
       Ok(())
     });
 
-    methods.add_method("translate", |_, this, v: mlua::AnyUserData| {
-      let bv = v.borrow::<VectorUserData>()?;
+    methods.add_method("position", |_, this, (): ()| {
+      let m = this.matrix.lock().unwrap();
+      let v: Vec<f32> = vec![m[12], m[13], m[14]];
+      Ok(v)
+    });
 
+    methods.add_method("translate", |_, this, v: Vec<f32>| {
       let mut m = this.matrix.lock().unwrap();
-      translate(&mut *m, &bv.vector);
+      let vt = [v[0], v[1], v[2]];
+      translate(&mut *m, &vt);
 
       Ok(())
     });
@@ -433,17 +502,15 @@ struct LocalMatrixData(Rc<RefCell<[f32; 16]>>);
 
 impl mlua::UserData for LocalMatrixData {
   fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
-    use crate::methatron::math::vector::VectorUserData;
 
     methods.add_method("identity", |_, this, (): ()| {
       identity(&mut *this.0.borrow_mut());
       Ok(())
     });
 
-    methods.add_method("translate", |_, this, v: mlua::AnyUserData| {
-      let bv = v.borrow::<VectorUserData>()?;
-
-      translate(&mut *this.0.borrow_mut(), &bv.vector);
+    methods.add_method("translate", |_, this, v: Vec<f32>| {
+      let vt = [v[0], v[1], v[2]];
+      translate(&mut *this.0.borrow_mut(), &vt);
 
       Ok(())
     });

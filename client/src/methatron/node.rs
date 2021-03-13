@@ -146,7 +146,7 @@ impl mlua::UserData for NodeUserData {
 
       let mut node = this.node.write().unwrap();
       let bd = drawable.borrow::<DrawableUserData>().unwrap();
-      node.set_drawable(bd.drawable.clone());
+      node.set_drawable(bd.0.clone());
 
       Ok(())
     });

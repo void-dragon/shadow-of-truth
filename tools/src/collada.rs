@@ -69,6 +69,7 @@ impl Triangles {
             indices.push(CleanIndex {
                 vertex: p[i],
                 normal: p[i + 1],
+                texcoord: p[i + 2],
             });
             i += stride;
         }
@@ -81,12 +82,14 @@ impl Triangles {
 pub struct CleanIndex {
     pub vertex: usize,
     pub normal: usize,
+    pub texcoord: usize,
 }
 
 impl Hash for CleanIndex {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.vertex.hash(state);
         self.normal.hash(state);
+        self.texcoord.hash(state);
     }
 }
 

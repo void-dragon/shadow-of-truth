@@ -1,28 +1,27 @@
 local main = methatron.scene.new("main")
-main:create_shader(
-  "phong",
-  "assets/shaders/phong.vertex.glsl",
-  "assets/shaders/phong.fragment.glsl"
-)
 main:create_model(
   "cube",
-  "assets/models/cube.json"
+  "assets/models/bunny-ball.json"
 )
 main:create_model(
-  "iko",
-  "assets/models/ikosaeder.json"
+  "terrain",
+  "assets/models/test-map.json"
 )
-main:create_drawable("user", "phong", "cube")
-main:create_drawable("rocket", "phong", "iko")
+main:create_drawable("user", "cube")
+main:create_drawable("terrain", "terrain")
+
+local node_terrain = methatron.node.new()
+node_terrain:set_drawable(main:get_drawable("terrain"))
+main:get_root():add_child(node_terrain)
 
 local cam = main:get_camera()
 local mat = cam:get_node():get_transform()
-local cam_distance = methatron.math.vector.new(0.0, 0.0, 10.0)
+local cam_distance = {0.0, 0.0, 10.0}
 
 local light = main:get_lights()[1]
 local l_node = light:get_node()
 local l_mat = l_node:get_transform()
-l_mat:translate(methatron.math.vector.new(0, 2, 0))
+l_mat:translate({5, 19, 0})
 
 lua.print("set scene")
 engine:set_scene(main)
@@ -54,16 +53,33 @@ on_key_release = function(key)
   -- print("release " .. key)
 end
 
+on_mouse_wheel = function(pos)
+  cam_distance[3] = cam_distance[3] + pos
+end
+
 on_update = function()
+  local offset = nil
+
   if ub then
     ub:on_update()
+    offset = ub.node:get_transform():position()
   end
 
   local pos = engine:mouse_position()
   mat:batch(function(m)
     m:identity()
+    if offset then
+      m:translate(offset)
+    end
     m:rotate_y(pos[1] / 300)
     m:rotate_x(pos[2] / 200)
     m:translate(cam_distance)
   end)
+
+  if engine:is_key_down("B") then
+    l_mat:translate({0.0, 1.0, 0.0})
+  end
+  if engine:is_key_down("N") then
+    l_mat:translate({0.0, -1.0, 0.0})
+  end
 end

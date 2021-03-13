@@ -87,6 +87,13 @@ pub fn load_module(lua: &mlua::Lua, ns: &mlua::Table) -> Result<(), mlua::Error>
   })?;
   module.set("new", lua_new)?;
 
+  let lua_add = lua.create_function(|_, (a, b): (mlua::AnyUserData, mlua::AnyUserData)| {
+    let a = a.borrow::<VectorUserData>().unwrap().vector;
+    let b = b.borrow::<VectorUserData>().unwrap().vector;
+    Ok(VectorUserData { vector: add(&a, &b) })
+  })?;
+  module.set("add", lua_add)?;
+
   ns.set("vector", module)?;
 
   Ok(())

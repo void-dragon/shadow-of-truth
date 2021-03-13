@@ -12,3 +12,10 @@ This project is to change this.
 choco install openssl
 $Env:OPENSSL_DIR = "C:\Program Files\OpenSSL-Win64\"
 ```
+
+## Assets
+
+### Sounds
+
++ https://freesound.org/
++ https://www.zapsplat.com/

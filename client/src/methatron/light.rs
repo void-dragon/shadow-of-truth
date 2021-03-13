@@ -1,9 +1,14 @@
 use std::sync::{Arc, RwLock};
 
-use crate::methatron::node::{self, Node};
+use crate::methatron::{
+  node::{self, Node},
+  shadow::{self, Shadow},
+};
 
 pub struct ImplLight {
   pub node: Node,
+  pub shadow: Shadow,
+  pub mvp: [f32; 16],
   pub position: [f32; 3],
   pub ambient: [f32; 3],
   pub diffuse: [f32; 3],
@@ -27,6 +32,8 @@ impl mlua::UserData for LightUserData {
 pub fn new() -> Light {
   let light = ImplLight {
     node: node::new(),
+    shadow: shadow::new(1024, 1024),
+    mvp: [0.0; 16],
     position: [0.0, 0.0, 0.0],
     ambient: [1.0, 1.0, 1.0],
     diffuse: [1.0, 1.0, 1.0],

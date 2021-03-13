@@ -3,6 +3,7 @@ pub enum Events {
     Disconnected,
     KeyPressed(String),
     KeyReleased(String),
+    MouseWheel(f32),
 }
 
 #[derive(Clone)]

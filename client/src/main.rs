@@ -13,8 +13,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
   let event_loop = glutin::event_loop::EventLoop::new();
   let window = glutin::window::WindowBuilder::new()
-    .with_title("shadow-of-truth");
+    .with_title("shadow-of-truth")
+    .with_inner_size(glutin::dpi::LogicalSize::new(1024.0, 768.0));
   let gl_window = glutin::ContextBuilder::new()
+    .with_gl(glutin::GlRequest::Latest)
     .build_windowed(window, &event_loop)?;
   gl_window.window().set_cursor_visible(false);
 
@@ -43,11 +45,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   unsafe {
     gl::Enable(gl::DEPTH_TEST);
     gl::DepthFunc(gl::LEQUAL);
+    gl::ClearColor(0.0, 0.0, 0.0, 1.0);
   }
 
   let mut start = Instant::now();
   event_loop.run(move |event, _, control_flow| {
-    use glutin::event::{Event, WindowEvent, DeviceEvent, ElementState, StartCause, KeyboardInput, VirtualKeyCode};
+    use glutin::event::{Event, WindowEvent, DeviceEvent, ElementState, KeyboardInput, VirtualKeyCode, MouseScrollDelta};
     use glutin::event_loop::ControlFlow;
     let next = Instant::now() + Duration::from_millis(25);
     *control_flow = ControlFlow::WaitUntil(next);
@@ -81,6 +84,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
               }
             }
           }
+          WindowEvent::MouseWheel{delta: MouseScrollDelta::LineDelta(x, y), ..} => {
+            ev.sender.send(events::Events::MouseWheel(y)).unwrap();
+          }
+          WindowEvent::MouseWheel{delta, ..} => {
+            log::debug!("{:?}", delta);
+          }
           _ => {}
       },
       Event::DeviceEvent { event, .. } => {
@@ -107,11 +116,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
       if error != 0 {
         panic!("OPEN_GL ERROR {}", error);
-      }
-
-      unsafe {
-        gl::ClearColor(0.0, 0.0, 0.0, 1.0);
-        gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
       }
 
       if let Some(scene) = &ctx.read().unwrap().scene {

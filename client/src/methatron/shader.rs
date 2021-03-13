@@ -15,51 +15,14 @@ pub fn new() -> Shader {
     program: program,
     sources: Vec::new(),
     is_linked: false,
-    mvp: 0,
-    material: MaterialLoc {
-      ambient: 0,
-      diffuse: 0,
-      specular: 0,
-      shininess: 0,
-    },
-    light: LightLoc {
-      position: 0,
-      ambient: 0,
-      diffuse: 0,
-      specular: 0,
-    },
-    position: 0,
-    normal: 0,
-    t0: 0,
   }))
 }
 
-#[derive(Debug)]
-pub struct MaterialLoc {
-  pub ambient: GLuint,
-  pub diffuse: GLuint,
-  pub specular: GLuint,
-  pub shininess: GLuint,
-}
-
-#[derive(Debug)]
-pub struct LightLoc {
-  pub position: GLint,
-  pub ambient: GLint,
-  pub diffuse: GLint,
-  pub specular: GLint,
-}
 
 pub struct ImplShader {
   pub program: GLuint,
   sources: Vec<GLuint>,
   is_linked: bool,
-  pub mvp: GLint,
-  pub light: LightLoc,
-  pub material: MaterialLoc,
-  pub position: GLuint,
-  pub normal: GLuint,
-  pub t0: GLuint,
 }
 
 impl ImplShader {
@@ -127,39 +90,7 @@ impl ImplShader {
           gl::GetProgramiv(program, gl::LINK_STATUS, &mut status);
 
           if status == gl::TRUE as GLint {
-            let mvp = CString::new("mvp".as_bytes()).unwrap();
-            let mvp = gl::GetUniformLocation(program, mvp.as_ptr());
-
-            let l_position = CString::new("light.position".as_bytes()).unwrap();
-            let l_ambient = CString::new("light.ambient".as_bytes()).unwrap();
-            let l_diffuse = CString::new("light.diffuse".as_bytes()).unwrap();
-            let l_specular = CString::new("light.specular".as_bytes()).unwrap();
-            let light = LightLoc {
-              position: gl::GetUniformLocation(program, l_position.as_ptr()),
-              ambient: gl::GetUniformLocation(program, l_ambient.as_ptr()),
-              diffuse: gl::GetUniformLocation(program, l_diffuse.as_ptr()),
-              specular: gl::GetUniformLocation(program, l_specular.as_ptr()),
-            };
-
-            let mat_ambient = CString::new("m_ambient".as_bytes()).unwrap();
-            let amb = gl::GetAttribLocation(program, mat_ambient.as_ptr()) as _;
-            let material = MaterialLoc {
-              ambient: amb,
-              diffuse: amb + 1,
-              specular: amb + 2,
-              shininess: amb + 3,
-            };
-
-            let pos = CString::new("position".as_bytes()).unwrap();
-            let position = gl::GetAttribLocation(program, pos.as_ptr()) as _;
-
-            let normal = CString::new("normal".as_bytes()).unwrap();
-            let normal = gl::GetAttribLocation(program, normal.as_ptr()) as _;
-
-            let t0 = CString::new("t0".as_bytes()).unwrap();
-            let t0 = gl::GetAttribLocation(program, t0.as_ptr()) as _;
-
-            Ok((mvp, material, light, position, normal, t0))
+            Ok(())
           } else {
             let mut len = 0;
             gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut len);
@@ -173,13 +104,7 @@ impl ImplShader {
       });
 
       match result {
-        Ok((mvp, material, light, pos, normal, t0)) => {
-          self.mvp = mvp;
-          self.material = material;
-          self.light = light;
-          self.position = pos;
-          self.normal = normal;
-          self.t0 = t0;
+        Ok(_) => {
           self.is_linked = true;
 
           Ok(())
@@ -193,6 +118,32 @@ impl ImplShader {
     unsafe {
       gl::UseProgram(self.program);
     }
+  }
+
+  pub fn get_attribute_location(&self, name: String) -> u32 {
+    let pump = pump::get();
+    let program = self.program;
+
+    let position = pump.exec(move || {
+      let cname = CString::new(name.as_bytes()).unwrap();
+      let position: u32 = unsafe { gl::GetAttribLocation(program, cname.as_ptr()) as _ };
+      position
+    });
+
+    position
+  }
+
+  pub fn get_uniform_location(&self, name: String) -> i32 {
+    let pump = pump::get();
+    let program = self.program;
+
+    let position = pump.exec(move || {
+      let cname = CString::new(name.as_bytes()).unwrap();
+      let position = unsafe { gl::GetUniformLocation(program, cname.as_ptr()) };
+      position
+    });
+
+    position
   }
 }
 

@@ -1,6 +1,6 @@
 
 local m = node:get_transform()
-local border = 50
+local border = 150
 
 on_update = function()
     if is_owner then

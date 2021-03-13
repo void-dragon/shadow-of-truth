@@ -1,25 +1,33 @@
 #version 330 core
 
-struct Material {
+uniform mat4 mvp;
+uniform mat4 light_mvp;
+
+layout (location = 0) in vec3 position;
+layout (location = 1) in vec3 normal;
+layout (location = 2) in vec2 texcoords;
+layout (location = 3) in vec4 t0;
+layout (location = 4) in vec4 t1;
+layout (location = 5) in vec4 t2;
+layout (location = 6) in vec4 t3;
+layout (location = 7) in vec3 m_ambient;
+layout (location = 8) in vec3 m_diffuse;
+layout (location = 9) in vec3 m_specular;
+layout (location = 10) in float m_shininess;
+
+out VS_OUT {
+    vec3 FragPos;
+    vec3 Normal;
+    vec2 TexCoords;
+    vec4 FragPosLightSpace;
+} vs_out;
+
+out Material {
     vec3 ambient;
     vec3 diffuse;
     vec3 specular;
     float shininess;
-};
-
-uniform mat4 mvp;
-
-attribute vec3 position;
-attribute vec3 normal;
-attribute vec4 t0, t1, t2, t3;
-attribute vec3 m_ambient;
-attribute vec3 m_diffuse;
-attribute vec3 m_specular;
-attribute float m_shininess;
-
-varying vec3 N;
-varying vec3 v;
-varying Material material;
+} material;
 
 void main() {
     mat4 transform = mat4(t0, t1, t2, t3);
@@ -29,10 +37,9 @@ void main() {
     material.specular = m_specular;
     material.shininess = m_shininess;
 
-    mat4 tr = mvp * transform;
-
-    // N = (transform * vec4(normal, 0.1)).xyz;
-    N = mat3(transpose(inverse(transform))) * normal;
-    v = (transform * vec4(position, 1.0)).xyz;
-    gl_Position = tr * vec4(position, 1.0);
+    vs_out.Normal = mat3(transpose(inverse(transform))) * normal;
+    vs_out.FragPos = (transform * vec4(position, 1.0)).xyz;
+    vs_out.TexCoords = texcoords;
+    vs_out.FragPosLightSpace = light_mvp * vec4(vs_out.FragPos, 1.0);
+    gl_Position = mvp * vec4(vs_out.FragPos, 1.0);
 }

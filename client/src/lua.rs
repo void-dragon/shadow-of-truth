@@ -80,6 +80,9 @@ where F: Fn(&mlua::Table) -> mlua::Result<()>
           crate::events::Events::KeyReleased(key) => {
             globals.get("on_key_release").ok().map(|f: mlua::Function| f.bind(key).unwrap())
           }
+          crate::events::Events::MouseWheel(pos) => {
+            globals.get("on_mouse_wheel").ok().map(|f: mlua::Function| f.bind(pos).unwrap())
+          }
           _ => {None}
         };
 

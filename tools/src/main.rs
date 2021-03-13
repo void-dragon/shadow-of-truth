@@ -24,11 +24,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut index_map = HashMap::new();
         let vertices = geometry.mesh.sources[0].float_array.as_vec();
         let normals = geometry.mesh.sources[1].float_array.as_vec();
+        let texcoords = geometry.mesh.sources[2].float_array.as_vec();
         let mut model = truth::Model {
             name: geometry.name.clone(),
             indices: Vec::new(),
             vertices: Vec::new(),
             normals: Vec::new(),
+            texcoords: Vec::new(),
         };
         
         for idx in geometry.mesh.triangles.clean_indices() {
@@ -42,6 +44,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 for t in 0..3 {
                     model.vertices.push(vertices[idx.vertex * 3 + t]);
                     model.normals.push(normals[idx.normal * 3 + t]);
+                }
+                for t in 0..2 {
+                    model.texcoords.push(texcoords[idx.texcoord * 2 + t]);
                 }
             }
         }

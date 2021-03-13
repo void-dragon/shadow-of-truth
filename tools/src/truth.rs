@@ -6,4 +6,5 @@ pub struct Model {
     pub indices: Vec<usize>,
     pub vertices: Vec<f32>,
     pub normals: Vec<f32>,
+    pub texcoords: Vec<f32>,
 }

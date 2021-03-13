@@ -7,6 +7,8 @@ pub fn new(width: usize, height: usize) -> Camera {
   matrix::perspective(&mut p.lock().unwrap(), 45.0, width as f32 / height as f32, 0.1, 1000.0);
 
   Arc::new(RwLock::new(ImplCamera {
+    width: width as _,
+    height: height as _,
     node: node::new(),
     perspective: p,
     mvp: matrix::new(),
@@ -16,6 +18,8 @@ pub fn new(width: usize, height: usize) -> Camera {
 pub type Camera = Arc<RwLock<ImplCamera>>;
 
 pub struct ImplCamera {
+  pub width: u32,
+  pub height: u32,
   pub node: node::Node,
   pub perspective: matrix::Matrix,
   pub mvp: matrix::Matrix,

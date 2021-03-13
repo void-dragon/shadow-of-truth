@@ -10,4 +10,5 @@ pub mod light;
 pub mod pump;
 pub mod scene;
 pub mod shader;
+pub mod shadow;
 pub mod vbo;

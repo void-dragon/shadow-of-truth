@@ -9,6 +9,7 @@ pub struct ImplModel {
   pub indices: Vec<u32>,
   pub vertices: Vec<f32>,
   pub normals: Vec<f32>,
+  pub texcoords: Vec<f32>,
 }
 
 pub type Model = Arc<RwLock<ImplModel>>;

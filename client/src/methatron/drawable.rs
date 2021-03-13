@@ -1,22 +1,19 @@
-use gl::types::{GLint, GLuint};
+use gl::types::GLuint;
 
 use crate::methatron::{
   pump, 
-  math::matrix::Matrix, 
   model::Model, 
   node::Node, 
-  light::Light,
-  shader::Shader, 
-  vbo::VBO
+  vbo::VBO,
+  scene::DrawAttribLocations,
 };
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
-pub fn new(shader: Shader, model: Model) -> Drawable {
+pub fn new(locs: DrawAttribLocations, model: Model) -> Drawable {
   let pump = pump::get();
 
-  let (vao, indices, vertices, normals, transforms, materials) = {
-    let shader = shader.clone();
+  let (vao, indices, vertices, normals, textures, transforms, materials) = {
     let model = model.clone();
     pump.exec(move || {
 
@@ -38,20 +35,22 @@ pub fn new(shader: Shader, model: Model) -> Drawable {
       let vertices = VBO::new(gl::ARRAY_BUFFER, gl::STATIC_DRAW, &model.vertices);
 
       unsafe {
-        let shader = shader.read().unwrap();
-        gl::EnableVertexAttribArray(shader.position);
-        gl::VertexAttribPointer(shader.position as _, 3, gl::FLOAT, gl::FALSE, float_size * 3, std::ptr::null());
+        gl::EnableVertexAttribArray(locs.position);
+        gl::VertexAttribPointer(locs.position as _, 3, gl::FLOAT, gl::FALSE, float_size * 3, std::ptr::null());
       }
 
       let normals = VBO::new(gl::ARRAY_BUFFER, gl::STATIC_DRAW, &model.normals);
 
       unsafe {
-        let shader = shader.read().unwrap();
-        gl::EnableVertexAttribArray(shader.normal);
-        gl::VertexAttribPointer(shader.normal, 3, gl::FLOAT, gl::FALSE, float_size * 3, std::ptr::null());
+        gl::EnableVertexAttribArray(locs.normal);
+        gl::VertexAttribPointer(locs.normal, 3, gl::FLOAT, gl::FALSE, float_size * 3, std::ptr::null());
       }
 
-      // let textures = VBO::new(gl::ARRAY_BUFFER, gl::STATIC_DRAW, &buffer);
+      let textures = VBO::new(gl::ARRAY_BUFFER, gl::STATIC_DRAW, &model.texcoords);
+      unsafe {
+        gl::EnableVertexAttribArray(locs.texcoords);
+        gl::VertexAttribPointer(locs.texcoords, 2, gl::FLOAT, gl::FALSE, float_size * 2, std::ptr::null());
+      }
 
       let transform_buffer: Vec<f32> = vec![0.0; 16];
       let transforms = VBO::new(gl::ARRAY_BUFFER, gl::DYNAMIC_DRAW, &transform_buffer);
@@ -59,41 +58,39 @@ pub fn new(shader: Shader, model: Model) -> Drawable {
       let matrix_offset = float_size * 16;
 
       unsafe {
-        let shader = shader.read().unwrap();
-        gl::EnableVertexAttribArray(shader.t0 + 0);
-        gl::EnableVertexAttribArray(shader.t0 + 1);
-        gl::EnableVertexAttribArray(shader.t0 + 2);
-        gl::EnableVertexAttribArray(shader.t0 + 3);
-        gl::VertexAttribPointer(shader.t0 + 0, 4, gl::FLOAT, gl::FALSE, matrix_offset, 0 as *const _);
-        gl::VertexAttribPointer(shader.t0 + 1, 4, gl::FLOAT, gl::FALSE, matrix_offset, (float_size * 4) as *const _);
-        gl::VertexAttribPointer(shader.t0 + 2, 4, gl::FLOAT, gl::FALSE, matrix_offset, (float_size * 8) as *const _);
-        gl::VertexAttribPointer(shader.t0 + 3, 4, gl::FLOAT, gl::FALSE, matrix_offset, (float_size * 12) as *const _);
-        gl::VertexAttribDivisor(shader.t0 + 0, 1);
-        gl::VertexAttribDivisor(shader.t0 + 1, 1);
-        gl::VertexAttribDivisor(shader.t0 + 2, 1);
-        gl::VertexAttribDivisor(shader.t0 + 3, 1);
+        gl::EnableVertexAttribArray(locs.t0 + 0);
+        gl::EnableVertexAttribArray(locs.t0 + 1);
+        gl::EnableVertexAttribArray(locs.t0 + 2);
+        gl::EnableVertexAttribArray(locs.t0 + 3);
+        gl::VertexAttribPointer(locs.t0 + 0, 4, gl::FLOAT, gl::FALSE, matrix_offset, 0 as *const _);
+        gl::VertexAttribPointer(locs.t0 + 1, 4, gl::FLOAT, gl::FALSE, matrix_offset, (float_size * 4) as *const _);
+        gl::VertexAttribPointer(locs.t0 + 2, 4, gl::FLOAT, gl::FALSE, matrix_offset, (float_size * 8) as *const _);
+        gl::VertexAttribPointer(locs.t0 + 3, 4, gl::FLOAT, gl::FALSE, matrix_offset, (float_size * 12) as *const _);
+        gl::VertexAttribDivisor(locs.t0 + 0, 1);
+        gl::VertexAttribDivisor(locs.t0 + 1, 1);
+        gl::VertexAttribDivisor(locs.t0 + 2, 1);
+        gl::VertexAttribDivisor(locs.t0 + 3, 1);
       }
 
       let material_buffer: Vec<f32> = vec![1.0; 10];
       let materials = VBO::new(gl::ARRAY_BUFFER, gl::DYNAMIC_DRAW, &material_buffer);
       let material_offset = float_size * 10;
       unsafe {
-        let shader = shader.read().unwrap();
-        gl::EnableVertexAttribArray(shader.material.ambient);
-        gl::EnableVertexAttribArray(shader.material.diffuse);
-        gl::EnableVertexAttribArray(shader.material.specular);
-        gl::EnableVertexAttribArray(shader.material.shininess);
-        gl::VertexAttribPointer(shader.material.ambient, 3, gl::FLOAT, gl::FALSE, material_offset, 0 as *const _);
-        gl::VertexAttribPointer(shader.material.diffuse, 3, gl::FLOAT, gl::FALSE, material_offset, (float_size * 3) as *const _);
-        gl::VertexAttribPointer(shader.material.specular, 3, gl::FLOAT, gl::FALSE, material_offset, (float_size * 6) as *const _);
-        gl::VertexAttribPointer(shader.material.shininess, 1, gl::FLOAT, gl::FALSE, material_offset, (float_size * 9) as *const _);
-        gl::VertexAttribDivisor(shader.material.ambient, 1);
-        gl::VertexAttribDivisor(shader.material.diffuse, 1);
-        gl::VertexAttribDivisor(shader.material.specular, 1);
-        gl::VertexAttribDivisor(shader.material.shininess, 1);
+        gl::EnableVertexAttribArray(locs.material.ambient);
+        gl::EnableVertexAttribArray(locs.material.diffuse);
+        gl::EnableVertexAttribArray(locs.material.specular);
+        gl::EnableVertexAttribArray(locs.material.shininess);
+        gl::VertexAttribPointer(locs.material.ambient, 3, gl::FLOAT, gl::FALSE, material_offset, 0 as *const _);
+        gl::VertexAttribPointer(locs.material.diffuse, 3, gl::FLOAT, gl::FALSE, material_offset, (float_size * 3) as *const _);
+        gl::VertexAttribPointer(locs.material.specular, 3, gl::FLOAT, gl::FALSE, material_offset, (float_size * 6) as *const _);
+        gl::VertexAttribPointer(locs.material.shininess, 1, gl::FLOAT, gl::FALSE, material_offset, (float_size * 9) as *const _);
+        gl::VertexAttribDivisor(locs.material.ambient, 1);
+        gl::VertexAttribDivisor(locs.material.diffuse, 1);
+        gl::VertexAttribDivisor(locs.material.specular, 1);
+        gl::VertexAttribDivisor(locs.material.shininess, 1);
       }
 
-      (vao, indices, vertices, normals, transforms, materials)
+      (vao, indices, vertices, normals, textures, transforms, materials)
     })
   };
   log::debug!("created drawable {}", vao);
@@ -103,11 +100,10 @@ pub fn new(shader: Shader, model: Model) -> Drawable {
     indices: indices,
     vertices: vertices,
     normals: normals,
-    // textures: textures,
+    textures: textures,
     transforms: transforms,
     transform_buffer: vec![0.0; 16],
     references: HashMap::new(),
-    shader: shader,
     indices_count: model.read().unwrap().indices.len(),
     //model: model,
     material_buffer: vec![0.0; 10],
@@ -116,16 +112,15 @@ pub fn new(shader: Shader, model: Model) -> Drawable {
 }
 
 pub struct ImplDrawable {
-  vao: GLuint,
-  indices: VBO,
+  pub vao: GLuint,
+  pub indices: VBO,
   vertices: VBO,
   normals: VBO,
-  // textures: VBO,
+  textures: VBO,
   transforms: VBO,
   transform_buffer: Vec<f32>,
   pub references: HashMap<u64, Node>,
-  shader: Shader,
-  indices_count: usize,
+  pub indices_count: usize,
   //model: Model,
   materials: VBO,
   material_buffer: Vec<f32>,
@@ -160,46 +155,6 @@ impl ImplDrawable {
     self.transforms.set(&self.transform_buffer);
     self.materials.set(&self.material_buffer);
   }
-
-  pub fn draw(&mut self, mvp: &Matrix, lights: &Vec<Light>) {
-    self.update_instance_matrices();
-    unsafe {
-      gl::BindVertexArray(self.vao);
-    }
-
-    let shader = self.shader.read().unwrap();
-
-    // index buffer has to be present, because it is not bound via context of vertex attribute diffenition
-    self.indices.bind();
-
-    shader.bind();
-
-    unsafe {
-      {
-        let mvp = mvp.lock().unwrap();
-        gl::UniformMatrix4fv(shader.mvp, 1, gl::FALSE, mvp.as_ptr() as *const _);
-      }
-
-      {
-        let light = &lights[0];
-        let light = light.read().unwrap();
-        gl::Uniform3fv(shader.light.position, 1, light.position.as_ptr());
-        gl::Uniform3fv(shader.light.ambient, 1, light.ambient.as_ptr());
-        gl::Uniform3fv(shader.light.diffuse, 1, light.diffuse.as_ptr());
-        gl::Uniform3fv(shader.light.specular, 1, light.specular.as_ptr());
-      }
-
-      // !! meditate about it !!
-      // https://stackoverflow.com/questions/32447641/what-is-common-cause-of-range-out-of-bounds-of-buffer-in-webgl
-      gl::DrawElementsInstanced(
-        gl::TRIANGLES,
-        self.indices_count as GLint,
-        gl::UNSIGNED_INT,
-        std::ptr::null(),
-        self.references.len() as GLint,
-      );
-    }
-  }
 }
 
 impl Drop for ImplDrawable {
@@ -212,8 +167,6 @@ impl Drop for ImplDrawable {
 
 pub type Drawable = Arc<RwLock<ImplDrawable>>;
 
-pub struct DrawableUserData {
-  pub drawable: Drawable,
-}
+pub struct DrawableUserData(pub Drawable);
 
 impl mlua::UserData for DrawableUserData {}

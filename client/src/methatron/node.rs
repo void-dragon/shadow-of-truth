@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock, Weak};
 
 use crate::methatron::{
-  material::{self, Material},
+  material::{self, Material, MaterialUserData},
   drawable::Drawable,
   math::matrix
 };
@@ -149,6 +149,11 @@ impl mlua::UserData for NodeUserData {
       node.set_drawable(bd.0.clone());
 
       Ok(())
+    });
+
+    methods.add_method("get_material", |_, this, ()| {
+      let node = this.node.read().unwrap();
+      Ok(MaterialUserData(node.material.clone()))
     });
 
     methods.add_method("get_parent", |_, this, _: ()| {

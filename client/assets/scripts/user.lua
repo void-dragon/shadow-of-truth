@@ -18,10 +18,10 @@ return {
                     mat:translate({0.1, 0.0, 0.0})
                 end
                 if engine:is_key_down("A") then
-                    mat:rotate_y(0.05)
+                    mat:translate({0.0, 0.0, 0.1})
                 end
                 if engine:is_key_down("D") then
-                    mat:rotate_y(-0.05)
+                    mat:translate({0.0, 0.0, -0.1})
                 end
             end
         }

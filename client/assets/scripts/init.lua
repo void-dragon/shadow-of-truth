@@ -1,18 +1,32 @@
 local main = methatron.scene.new("main")
 main:create_model(
   "cube",
+  "assets/models/cube.json"
+)
+main:create_model(
+  "bunny",
   "assets/models/bunny-ball.json"
 )
 main:create_model(
   "terrain",
   "assets/models/test-map.json"
 )
-main:create_drawable("user", "cube")
+main:create_drawable("cube", "cube")
+main:create_drawable("bunny", "bunny")
 main:create_drawable("terrain", "terrain")
+
+local root = main:get_root()
 
 local node_terrain = methatron.node.new()
 node_terrain:set_drawable(main:get_drawable("terrain"))
-main:get_root():add_child(node_terrain)
+root:add_child(node_terrain)
+
+local node_target = methatron.node.new()
+local node_inner = methatron.node.new()
+node_inner:set_drawable(main:get_drawable("cube"))
+node_inner:get_transform():scale(0.3)
+node_target:add_child(node_inner)
+root:add_child(node_target)
 
 local cam = main:get_camera()
 local mat = cam:get_node():get_transform()
@@ -21,21 +35,21 @@ local cam_distance = {0.0, 0.0, 10.0}
 local light = main:get_lights()[1]
 local l_node = light:get_node()
 local l_mat = l_node:get_transform()
-l_mat:translate({5, 19, 0})
+l_mat:translate({5, 25, 34})
 
 lua.print("set scene")
 engine:set_scene(main)
 local network = engine:network()
 local ub = nil
+local bunny = nil
 local user = require("assets/scripts/user")
 
 on_connect = function()
   network:join("main")
-  n0 = network:spawn("main", "user", nil)
+  bunny = network:spawn("main", "bunny", nil)
 
-  ub = user.new(n0)
-
-  lua.print(n0:id() .. " " .. n0:network_id())
+  bunny:get_transform():translate({0.0, 1.0, 3.0})
+  ub = user.new(node_target)
 end
 
 on_disconnect = function()
@@ -63,6 +77,7 @@ on_update = function()
   if ub then
     ub:on_update()
     offset = ub.node:get_transform():position()
+    bunny:get_transform():look_at(node_target:get_transform())
   end
 
   local pos = engine:mouse_position()
@@ -81,5 +96,11 @@ on_update = function()
   end
   if engine:is_key_down("N") then
     l_mat:translate({0.0, -1.0, 0.0})
+  end
+  if engine:is_key_down("V") then
+    l_mat:translate({0.0, 0.0, 1.0})
+  end
+  if engine:is_key_down("M") then
+    l_mat:translate({0.0, 0.0, -1.0})
   end
 end

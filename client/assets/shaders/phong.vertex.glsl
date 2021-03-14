@@ -37,9 +37,11 @@ void main() {
     material.specular = m_specular;
     material.shininess = m_shininess;
 
+    vec4 pos = transform * vec4(position, 1.0);
+
     vs_out.Normal = mat3(transpose(inverse(transform))) * normal;
-    vs_out.FragPos = (transform * vec4(position, 1.0)).xyz;
+    vs_out.FragPos = pos.xyz;
     vs_out.TexCoords = texcoords;
-    vs_out.FragPosLightSpace = light_mvp * vec4(vs_out.FragPos, 1.0);
-    gl_Position = mvp * vec4(vs_out.FragPos, 1.0);
+    vs_out.FragPosLightSpace = light_mvp * pos;
+    gl_Position = mvp * pos;
 }

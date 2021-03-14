@@ -453,6 +453,17 @@ impl mlua::UserData for MatrixUserData {
       Ok(())
     });
 
+    methods.add_method("look_at", |_, this, (look, up): (mlua::AnyUserData, mlua::Value)| {
+      let l = look.borrow::<MatrixUserData>().unwrap();
+      let mut m = this.matrix.lock().unwrap();
+      let lm = l.matrix.lock().unwrap();
+      let v = [lm[12], lm[13], lm[14]];
+
+      look_at(&mut m, &v, &[0.0, 1.0, 0.0]);
+
+      Ok(())
+    });
+
     methods.add_method("position", |_, this, (): ()| {
       let m = this.matrix.lock().unwrap();
       let v: Vec<f32> = vec![m[12], m[13], m[14]];
@@ -482,6 +493,12 @@ impl mlua::UserData for MatrixUserData {
     methods.add_method("rotate_z", |_, this, a: f32| {
       let mut m = this.matrix.lock().unwrap();
       rotate_z(&mut *m, a);
+      Ok(())
+    });
+
+    methods.add_method("scale", |_, this, a: f32| {
+      let mut m = this.matrix.lock().unwrap();
+      scale(&mut *m, &[a, a, a]);
       Ok(())
     });
 

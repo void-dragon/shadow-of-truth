@@ -27,6 +27,7 @@ in Material {
 float shadow_calculation() {
   vec3 projCoords = fs_in.FragPosLightSpace.xyz / fs_in.FragPosLightSpace.w;
   projCoords = projCoords * 0.5 + 0.5;
+
   float closestDepth = texture(shadowMap, projCoords.xy).r;
   float currentDepth = projCoords.z;
   float bias = 0.05;

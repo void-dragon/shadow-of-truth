@@ -146,6 +146,7 @@ impl ImplScene {
   fn draw_shadows(&self) {
     unsafe {
       // gl::Disable( gl::CULL_FACE );
+      gl::CullFace(gl::FRONT);
     }
     for light in &self.lights {
       {
@@ -156,8 +157,8 @@ impl ImplScene {
         light.mvp = mvp;
       }
 
-      let light = light.read().unwrap();
       unsafe {
+        let light = light.read().unwrap();
         let shader = self.shadow_shader.read().unwrap();
         shader.bind();
 
@@ -183,6 +184,7 @@ impl ImplScene {
       // gl::Enable( gl::CULL_FACE );
       gl::Viewport(0, 0, cam.width as _, cam.height as _);
       gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+      gl::CullFace(gl::BACK);
     }
 
     {

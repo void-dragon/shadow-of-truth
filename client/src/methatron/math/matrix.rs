@@ -418,6 +418,9 @@ pub fn perspective(m: &mut [f32; 16], fovy: f32, aspect: f32, znear: f32, zfar: 
   m[15] = 1.0;
 }
 
+///
+/// https://www.scratchapixel.com/lessons/3d-basic-rendering/perspective-and-orthographic-projection-matrix/orthographic-projection-matrix
+///
 pub fn ortho(top: f32, bottom: f32, left: f32, right: f32, near: f32, far: f32) -> [f32; 16] {
   let mut m = [0.0; 16];
 
@@ -431,7 +434,7 @@ pub fn ortho(top: f32, bottom: f32, left: f32, right: f32, near: f32, far: f32) 
   m[7] = 0.0;
   m[8] = 0.0;
   m[9] = 0.0;
-  m[10] = 2.0 / (far - near);
+  m[10] = -2.0 / (far - near);
   m[11] = 0.0;
   m[12] = -(right + left) / (right - left);
   m[13] = -(top + bottom) / (top - bottom);

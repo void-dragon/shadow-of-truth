@@ -145,18 +145,9 @@ pub struct ImplScene {
 impl ImplScene {
   fn draw_shadows(&self) {
     unsafe {
-      // gl::Disable( gl::CULL_FACE );
-      gl::CullFace(gl::FRONT);
+      // gl::CullFace(gl::FRONT);
     }
     for light in &self.lights {
-      {
-        let mut light = light.write().unwrap();
-        let projection = matrix::ortho(-10.0, 10.0, -10.0, 10.0, 0.01, 20.5);
-        let view = matrix::look_at_from(&light.position, &[0.0, 0.0, 0.0], &[0.0, 1.0, 0.0]);
-        let mvp = matrix::mul(&projection, &view);
-        light.mvp = mvp;
-      }
-
       unsafe {
         let light = light.read().unwrap();
         let shader = self.shadow_shader.read().unwrap();
@@ -181,10 +172,9 @@ impl ImplScene {
     let cam = self.camera.read().unwrap();
     let mvp = cam.mvp.clone();
     unsafe {
-      // gl::Enable( gl::CULL_FACE );
       gl::Viewport(0, 0, cam.width as _, cam.height as _);
       gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-      gl::CullFace(gl::BACK);
+      // gl::CullFace(gl::BACK);
     }
 
     {
@@ -247,13 +237,8 @@ impl ImplScene {
     self.root.read().unwrap().update_world_transform(&identity);
 
     for light in &self.lights {
-      let mut l = light.write().unwrap();
-      let n = l.node.clone();
-      let n = n.read().unwrap();
-      let w = n.world_transform.lock().unwrap();
-      l.position[0] = w[12];
-      l.position[1] = w[13];
-      l.position[2] = w[14];
+      let mut light = light.write().unwrap();
+      light.calculate();
     }
 
     self.camera.write().unwrap().calculate();

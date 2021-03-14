@@ -19,6 +19,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     .with_gl(glutin::GlRequest::Latest)
     .build_windowed(window, &event_loop)?;
   gl_window.window().set_cursor_visible(false);
+  gl_window.window().set_cursor_grab(true)?;
 
   // It is essential to make the context current before calling `gl::load_with`.
   let gl_window = unsafe { gl_window.make_current() }.unwrap();
@@ -43,6 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
   log::info!("configure open-gl");
   unsafe {
+    // gl::Enable(gl::CULL_FACE);
     gl::Enable(gl::DEPTH_TEST);
     gl::DepthFunc(gl::LEQUAL);
     gl::ClearColor(0.0, 0.0, 0.0, 1.0);

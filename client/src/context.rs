@@ -47,6 +47,18 @@ impl mlua::UserData for ContextUserData {
         Ok(())
       });
 
+      methods.add_method("get_scene", |l, this, ()| {
+        use mlua::ToLua;
+
+        let ctx = this.0.read().unwrap();
+        if let Some(ref scene) = ctx.scene {
+          Ok(SceneUserData{scene: scene.clone()}.to_lua(&l)?)
+        }
+        else {
+          Ok(mlua::Value::Nil)
+        }
+      });
+
       methods.add_method("is_key_down", |_, this, key: String| {
         let ctx = this.0.read().unwrap();
         Ok(ctx.keys_down.contains(&key))

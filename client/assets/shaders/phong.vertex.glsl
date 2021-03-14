@@ -39,7 +39,9 @@ void main() {
 
     vec4 pos = transform * vec4(position, 1.0);
 
-    vs_out.Normal = mat3(transpose(inverse(transform))) * normal;
+    // vs_out.Normal = mat3(transpose(inverse(transform))) * normal;
+    vs_out.Normal = (transform * vec4(normal, 1.0)).xyz;
+    // vs_out.Normal = normal;
     vs_out.FragPos = pos.xyz;
     vs_out.TexCoords = texcoords;
     vs_out.FragPosLightSpace = light_mvp * pos;

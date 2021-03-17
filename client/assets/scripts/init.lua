@@ -56,6 +56,9 @@ local network = engine:network()
 local ub = nil
 local bunny = nil
 local user = require("assets/scripts/user")
+local font = methatron.d2.font.new("assets/fonts/UbuntuMono-Regular.ttf")
+-- lua.print("yeha")
+-- font.draw(100, 100, "test string")
 
 on_connect = function()
   network:join("main")
@@ -88,6 +91,10 @@ on_update = function()
   if ub then
     ub:on_update()
     bunny:get_transform():look_at(node_target:get_transform())
+  end
+
+  if font then
+    -- do something
   end
 
   -- l_mat:translate({math.sin(alpha), 0, math.cos(alpha)})

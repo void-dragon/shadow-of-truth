@@ -150,12 +150,13 @@ impl ImplScene {
     for light in &self.lights {
       unsafe {
         let light = light.read().unwrap();
-        let shader = self.shadow_shader.read().unwrap();
-        shader.bind();
 
         gl::Viewport(0, 0, light.shadow.width as _, light.shadow.height as _);
         gl::BindFramebuffer(gl::FRAMEBUFFER, light.shadow.fbo);
         gl::Clear(gl::DEPTH_BUFFER_BIT);
+
+        let shader = self.shadow_shader.read().unwrap();
+        shader.bind();
 
         gl::UniformMatrix4fv(self.shadow_mvp_loc, 1, gl::FALSE, light.mvp.as_ptr() as *const _);
       }

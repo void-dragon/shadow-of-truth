@@ -7,6 +7,14 @@ mod methatron;
 mod network;
 mod tracer;
 
+fn check_gl_error(info: &str) {
+  let error = unsafe { gl::GetError() };
+
+  if error != 0 {
+    panic!("OPEN_GL ERROR {} {}", error, info);
+  }
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
   let env = env_logger::Env::default().default_filter_or("debug");
   env_logger::Builder::from_env(env).init();
@@ -44,9 +52,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
   log::info!("configure open-gl");
   unsafe {
+    gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
     // gl::Enable(gl::CULL_FACE);
     gl::Enable(gl::DEPTH_TEST);
     gl::DepthFunc(gl::LEQUAL);
+    gl::Enable(gl::BLEND);
+    gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
     gl::ClearColor(0.0, 0.0, 0.0, 1.0);
   }
 
@@ -114,21 +125,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if start.elapsed().as_millis() > 20 {
       pump.run();
 
-      let error = unsafe { gl::GetError() };
-
-      if error != 0 {
-        panic!("OPEN_GL ERROR {}", error);
-      }
+      check_gl_error("pump");
 
       if let Some(scene) = &ctx.read().unwrap().scene {
         scene.read().unwrap().draw();
       }
 
-      let error = unsafe { gl::GetError() };
+      check_gl_error("scene");
 
-      if error != 0 {
-        panic!("OPEN_GL ERROR {}", error);
-      }
+
+      check_gl_error("2d");
 
       gl_window.swap_buffers().unwrap();
       start = Instant::now();

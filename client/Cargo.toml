@@ -14,6 +14,8 @@ glutin = "*"
 log = "*"
 mlua = { version = "*", features = ["luajit", "vendored"]}
 nanoid = "*"
+rusttype = "*"
+png = "*"
 serde = { version = "*", features = ["derive"]}
 serde_cbor = "*"
 serde_json = "*"

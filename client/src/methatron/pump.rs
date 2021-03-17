@@ -16,6 +16,7 @@ pub fn get() -> Pump {
     else {
       let p = Pump {
         queue: Arc::new(Mutex::new(VecDeque::new())),
+        gl_thread: std::thread::current().id(),
       };
       PUMP = Some(p.clone());
       p
@@ -26,6 +27,7 @@ pub fn get() -> Pump {
 #[derive(Clone)]
 pub struct Pump {
   queue: Arc<Mutex<VecDeque<Arc<dyn FnMut() + Send + Sync + 'static>>>>,
+  gl_thread: std::thread::ThreadId,
 }
 
 impl Pump {
@@ -33,23 +35,30 @@ impl Pump {
   where 
     T: FnMut() -> E + Send + Sync + 'static, 
   {
-    let pair = Arc::new((Mutex::new(None), Condvar::new()));
-    let pair2 = pair.clone();
+    let id = std::thread::current().id();
 
-    self.queue.lock().unwrap().push_back(Arc::new(move || {
-      let (mtx, var) = &*pair2;
-      let mut result = mtx.lock().unwrap();
-      *result = Some(func());
-      var.notify_one();
-    }));
-
-    let (mtx, var) = &*pair;
-    let mut result = mtx.lock().unwrap();
-    while result.is_none() {
-      result = var.wait(result).unwrap();
+    if id == self.gl_thread {
+      func()
     }
+    else {
+      let pair = Arc::new((Mutex::new(None), Condvar::new()));
+      let pair2 = pair.clone();
 
-    result.take().unwrap()
+      self.queue.lock().unwrap().push_back(Arc::new(move || {
+        let (mtx, var) = &*pair2;
+        let mut result = mtx.lock().unwrap();
+        *result = Some(func());
+        var.notify_one();
+      }));
+
+      let (mtx, var) = &*pair;
+      let mut result = mtx.lock().unwrap();
+      while result.is_none() {
+        result = var.wait(result).unwrap();
+      }
+
+      result.take().unwrap()
+    }
   }
 
   pub fn run(&self) {

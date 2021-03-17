@@ -1,5 +1,6 @@
 pub mod behavior;
 pub mod camera;
+pub mod d2;
 pub mod drawable;
 pub mod error;
 pub mod math;

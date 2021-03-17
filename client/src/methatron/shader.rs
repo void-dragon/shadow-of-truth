@@ -149,6 +149,7 @@ impl ImplShader {
 
 impl Drop for ImplShader {
   fn drop(&mut self) {
+    log::debug!("delete shader {}", self.program);
     unsafe {
       gl::DeleteProgram(self.program);
     }
